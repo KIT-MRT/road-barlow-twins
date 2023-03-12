@@ -41,17 +41,17 @@ class ConvMotionPred(pl.LightningModule):
         # Filter out invalid predictions
         loss = loss * target_availabilities
 
-        return preds, loss
+        return preds, loss.mean()
 
     def training_step(self, batch, batch_idx):
         _, loss = self._get_preds_and_loss(batch)
-        self.log("train_loss", loss.mean(), sync_dist=True)
+        self.log("train_loss", loss, sync_dist=True)
 
         return loss
 
     def validation_step(self, batch, batch_idx):
         _, loss = self._get_preds_and_loss(batch)
-        self.log("val_loss", loss.mean(), sync_dist=True)
+        self.log("val_loss", loss, sync_dist=True)
 
         return loss
 
