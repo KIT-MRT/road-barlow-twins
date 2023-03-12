@@ -9,8 +9,8 @@ class ConvMotionPred(pl.LightningModule):
     def __init__(self, encoder, num_past_frames, num_future_frames, lr) -> None:
         super().__init__()
         self.encoder = encoder
-        # Past frames + current frames for ego agent and other agents
-        num_in_channels = (num_past_frames + 1) * 2
+        # Past frames + current frames for ego agent and other agents and 3 map channels
+        num_in_channels = (num_past_frames + 1) * 2 + 3
         # Predict (x, y) coordinates for each future frame
         num_out_nodes = num_future_frames * 2
 
