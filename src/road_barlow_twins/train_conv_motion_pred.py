@@ -27,14 +27,15 @@ def main():
         devices=4,
         num_nodes=1,
         strategy="ddp",
-        max_time={"days": 0, "hours": 0.5},
+        max_time={"days": 0, "hours": 9},
         default_root_dir="/p/project/hai_mrt_pc/motion-pred/conv",
         callbacks=[lr_monitor],
     )
 
     dm = WovenPredictionDataModule(
-        batch_size=256,
-        num_dataloader_workers=10,
+        batch_size=512, # Test with train instead of train_full
+        num_dataloader_workers=4,
+        pin_memory=False, # OOM if pin memory is used
     )
 
     trainer.fit(conv_motion_pred, datamodule=dm)
