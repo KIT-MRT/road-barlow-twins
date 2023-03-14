@@ -2,7 +2,7 @@ import os
 import torch
 import pytorch_lightning as pl
 
-from torch.utils.data import DataLoader, data_utils
+from torch.utils.data import DataLoader, Subset
 
 from l5kit.configs import load_config_data
 from l5kit.data import LocalDataManager, ChunkedDataset
@@ -46,7 +46,7 @@ class WovenPredictionDataModule(pl.LightningDataModule):
             ).open()
             train_dataset = AgentDataset(cfg, train_zarr, rasterizer)
 
-            self.train_set = data_utils.Subset(
+            self.train_set = Subset(
                 train_dataset,
                 torch.arange(
                     start=0,
@@ -54,7 +54,7 @@ class WovenPredictionDataModule(pl.LightningDataModule):
                     step=self.step_size_slicing,
                 ),
             )
-            self.val_set = data_utils.Subset(
+            self.val_set = Subset(
                 train_dataset,
                 torch.arange(
                     start=self.num_train_samples * self.step_size_slicing,
