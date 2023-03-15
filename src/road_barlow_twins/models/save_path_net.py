@@ -3,11 +3,8 @@ import pytorch_lightning as pl
 
 from torch import nn, optim
 
-from l5kit.configs import load_config_data
 from l5kit.prediction.vectorized.safepathnet_model import SafePathNetModel
 
-
-cfg = load_config_data("/p/home/jusers/wagner20/juwels/road-barlow-twins/src/road_barlow_twins/data_utils/save_path_net_config.yaml")
 
 class SafePathNet(pl.LightningModule):
     def __init__(self, cfg) -> None:

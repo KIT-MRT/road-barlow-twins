@@ -86,7 +86,7 @@ data_generation_params:
 ## Data loader options
 train_data_loader:
   key: "scenes/train.zarr"
-  batch_size: 16
+  batch_size: 512
   shuffle: True
   num_workers: 4
 
