@@ -22,20 +22,32 @@ class ConvMotionPred(pl.LightningModule):
             padding=encoder.conv1.padding,
             bias=False,
         )
-
-        self.encoder.fc = nn.Linear(
-            in_features=2048,
-            out_features=num_out_nodes,
+        # Drop pre-trained fc layer
+        self.encoder.fc = nn.Identity()
+        
+        self.neck = nn.Sequential(
+            nn.AvgPool2d(kernel_size=3),
+            nn.Dropout(p=0.3),
+            nn.Linear(in_features=2048, out_features=2048),
+        )
+        
+        self.head = nn.Sequential(
+            nn.ReLU(),
+            nn.Linear(in_features=2048, out_features=num_out_nodes),
         )
 
         self.lr = lr
 
     def _get_preds_and_loss(self, data):
-        x = data["image"]
-        target_availabilities = data["target_availabilities"].unsqueeze(-1)
         targets = data["target_positions"]
-        preds = self.encoder(x)
+        target_availabilities = data["target_availabilities"].unsqueeze(-1)
+        
+        x = data["image"]
+        x = self.encoder(x)
+        x = self.neck(x)
+        preds = self.head(x)
         preds = preds.reshape(targets.shape)
+        
         loss = F.mse_loss(preds, targets)
 
         # Filter out invalid predictions
