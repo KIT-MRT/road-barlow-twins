@@ -6,7 +6,7 @@ from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import LearningRateMonitor
 
 from l5kit.configs import load_config_data
-from models.save_path_net import SafePathNet
+from models.safe_path_net import SafePathNet
 from data_utils.dataset_modules import WovenPredictionGraphDataModule
 
 
