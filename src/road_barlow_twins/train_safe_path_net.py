@@ -12,7 +12,7 @@ from data_utils.dataset_modules import WovenPredictionGraphDataModule
 
 def main():
     cfg = load_config_data("/p/home/jusers/wagner20/juwels/road-barlow-twins/src/road_barlow_twins/data_utils/save_path_net_config.yaml")
-    safe_path_net = SafePathNet(cfg) 
+    safe_path_net = SafePathNet(cfg, lr=1e-3) 
 
     lr_monitor = LearningRateMonitor(logging_interval="epoch")
 

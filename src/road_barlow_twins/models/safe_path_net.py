@@ -7,7 +7,7 @@ from l5kit.prediction.vectorized.safepathnet_model import SafePathNetModel
 
 
 class SafePathNet(pl.LightningModule):
-    def __init__(self, cfg) -> None:
+    def __init__(self, cfg, lr) -> None:
         super().__init__()
         self.net = SafePathNetModel(
             history_num_frames_ego=cfg["model_params"]["history_num_frames_ego"],
@@ -22,6 +22,7 @@ class SafePathNet(pl.LightningModule):
             max_num_agents=cfg["data_generation_params"]["other_agents_num"],
             cost_prob_coeff=cfg["model_params"]["cost_prob_coeff"] * 2.5,
         )
+        self.lr = lr
 
     def forward(self, data):
         return self.net(data)
