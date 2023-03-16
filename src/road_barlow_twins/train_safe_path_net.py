@@ -22,7 +22,7 @@ def main():
         devices=4,
         num_nodes=1,
         strategy="ddp",
-        max_time={"days": 0, "hours": 15},
+        max_time={"days": 0, "hours": 9},
         default_root_dir="/p/project/hai_mrt_pc/motion-pred/graph",
         callbacks=[lr_monitor],
     )
