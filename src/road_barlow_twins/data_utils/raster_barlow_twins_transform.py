@@ -1,3 +1,4 @@
+import torch
 import torchvision.transforms as transforms
 
 
@@ -52,28 +53,17 @@ class BarlowTwinsTransform:
 
         self.transform = transforms.Compose(
             [
-                transforms.RandomResizedCrop(self.input_height),
-                transforms.RandomHorizontalFlip(p=0.5),
+                transforms.ToPILImage(),
+                transforms.RandomRotation(10),
+                transforms.RandomResizedCrop(self.input_height, scale=(0.6, 1.0)), # default 0.08, 1.0
+                #transforms.RandomHorizontalFlip(p=0.5),
                 self.color_transform,
                 self.final_transform,
             ]
         )
 
-        self.finetune_transform = None
-        if self.train:
-            self.finetune_transform = transforms.Compose(
-                [
-                    transforms.RandomCrop(32, padding=4, padding_mode="reflect"),
-                    transforms.RandomHorizontalFlip(),
-                    transforms.ToTensor(),
-                ]
-            )
-        else:
-            self.finetune_transform = transforms.ToTensor()
-
     def __call__(self, sample):
         return (
-            self.transform(sample),
-            self.transform(sample),
-            self.finetune_transform(sample),
+            self.transform(torch.from_numpy(sample)),
+            self.transform(torch.from_numpy(sample)),
         )
