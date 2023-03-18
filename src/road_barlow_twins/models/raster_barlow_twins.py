@@ -16,7 +16,6 @@ class BarlowTwins(pl.LightningModule):
         lambda_coeff=5e-3,
         z_dim=128,
         learning_rate=1e-4,
-        warmup_epochs=10,
         max_epochs=200,
     ):
         super().__init__()
@@ -30,16 +29,13 @@ class BarlowTwins(pl.LightningModule):
         )
 
         self.learning_rate = learning_rate
-        self.warmup_epochs = warmup_epochs
         self.max_epochs = max_epochs
-
-        self.train_iters_per_epoch = num_training_samples // batch_size
 
     def forward(self, x):
         return self.encoder(x)
 
     def shared_step(self, batch):
-        (x1, x2, _), _ = batch
+        x1, x2 = batch
 
         z1 = self.projection_head(self.encoder(x1))
         z2 = self.projection_head(self.encoder(x2))
