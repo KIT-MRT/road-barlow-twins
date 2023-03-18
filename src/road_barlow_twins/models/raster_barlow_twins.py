@@ -20,9 +20,13 @@ class BarlowTwins(pl.LightningModule):
         super().__init__()
 
         self.encoder = encoder
-        self.projection_head = ProjectionHead(
-            input_dim=encoder_out_dim, hidden_dim=encoder_out_dim, output_dim=z_dim
+        self.projection_head = nn.Sequential(
+            nn.Linear(in_features=encoder_out_dim, out_features=4096),
+            nn.BatchNorm1d(4096),
+            nn.ReLU(),
+            nn.Linear(in_features=4096, out_features=z_dim)
         )
+        
         self.loss_fn = BarlowTwinsLoss(
             batch_size=batch_size, lambda_coeff=lambda_coeff, z_dim=z_dim
         )
