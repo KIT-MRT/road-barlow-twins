@@ -11,7 +11,6 @@ class BarlowTwins(pl.LightningModule):
         self,
         encoder,
         encoder_out_dim,
-        num_training_samples,
         batch_size,
         lambda_coeff=5e-3,
         z_dim=128,
