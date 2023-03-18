@@ -26,7 +26,7 @@ class BarlowTwins(pl.LightningModule):
             nn.ReLU(),
             nn.Linear(in_features=4096, out_features=z_dim)
         )
-        
+
         self.loss_fn = BarlowTwinsLoss(
             batch_size=batch_size, lambda_coeff=lambda_coeff, z_dim=z_dim
         )
@@ -47,12 +47,12 @@ class BarlowTwins(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         loss = self.shared_step(batch)
-        self.log("train_loss", loss, on_step=True, on_epoch=False)
+        self.log("train_loss", loss, on_step=True, on_epoch=False, sync_dist=True)
         return loss
 
     def validation_step(self, batch, batch_idx):
         loss = self.shared_step(batch)
-        self.log("val_loss", loss, on_step=False, on_epoch=True)
+        self.log("val_loss", loss, on_step=False, on_epoch=True, sync_dist=True)
 
     def configure_optimizers(self):
         optimizer = torch.optim.AdamW(self.parameters(), lr=self.learning_rate)
