@@ -56,20 +56,20 @@ class BarlowTwins(pl.LightningModule):
         self.log("val_loss", loss, on_step=False, on_epoch=True)
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
-
-        warmup_steps = self.train_iters_per_epoch * self.warmup_epochs
-
-        scheduler = {
-            "scheduler": torch.optim.lr_scheduler.LambdaLR(
-                optimizer,
-                linear_warmup_decay(warmup_steps),
-            ),
-            "interval": "step",
-            "frequency": 1,
+        optimizer = torch.optim.AdamW(self.parameters(), lr=self.learning_rate)
+        return {
+            "optimizer": optimizer,
+            "lr_scheduler": {
+                "scheduler": torch.optim.lr_scheduler.CosineAnnealingLR(
+                    optimizer,
+                    T_max=self.max_epochs,
+                    eta_min=1e-6,
+                ),
+                "interval": "epoch",
+                "frequency": 1,
+                "name": "lr",
+            },
         }
-
-        return [optimizer], [scheduler]
 
 
 class BarlowTwinsLoss(nn.Module):
