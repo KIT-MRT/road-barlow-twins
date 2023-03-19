@@ -11,7 +11,7 @@ from l5kit.dataset import AgentDataset, EgoAgentDatasetVectorized
 from l5kit.rasterization import build_rasterizer
 from l5kit.vectorization.vectorizer_builder import build_vectorizer
 
-from raster_barlow_twins_transform import BarlowTwinsTransform
+from .raster_barlow_twins_transform import BarlowTwinsTransform
 
 
 class WaymoBarlowRasterLoader(Dataset):
@@ -84,6 +84,7 @@ class WaymoPredictionBarlowRasterDataModule(pl.LightningDataModule):
             num_workers=self.num_dataloader_workers,
             pin_memory=self.pin_memory,
             persistent_workers=True,
+            drop_last=True,
         )
 
     def val_dataloader(self):
@@ -93,6 +94,7 @@ class WaymoPredictionBarlowRasterDataModule(pl.LightningDataModule):
             num_workers=self.num_dataloader_workers,
             pin_memory=self.pin_memory,
             persistent_workers=True,
+            drop_last=True,
         )
 
 
@@ -156,6 +158,7 @@ class WovenPredictionDataModule(pl.LightningDataModule):
             num_workers=self.num_dataloader_workers,
             pin_memory=self.pin_memory,
             persistent_workers=True,
+            drop_last=True,
         )
 
     def val_dataloader(self):
@@ -165,6 +168,7 @@ class WovenPredictionDataModule(pl.LightningDataModule):
             num_workers=self.num_dataloader_workers,
             pin_memory=self.pin_memory,
             persistent_workers=True,
+            drop_last=True,
         )
 
 
