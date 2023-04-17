@@ -172,6 +172,105 @@ class WovenPredictionDataModule(pl.LightningDataModule):
         )
 
 
+class WaymoLoader(Dataset):
+    def __init__(self, directory, limit=0, return_vector=False, is_test=False):
+        files = os.listdir(directory)
+        self.files = [os.path.join(directory, f) for f in files if f.endswith(".npz")]
+
+        if limit > 0:
+            self.files = self.files[:limit]
+        else:
+            self.files = sorted(self.files)
+
+        self.return_vector = return_vector
+        self.is_test = is_test
+
+    def __len__(self):
+        return len(self.files)
+
+    def __getitem__(self, idx):
+        filename = self.files[idx]
+        data = np.load(filename, allow_pickle=True)
+
+        raster = data["raster"].astype("float32")
+        raster = raster.transpose(2, 1, 0) / 255
+
+        if self.is_test:
+            center = data["shift"]
+            yaw = data["yaw"]
+            agent_id = data["object_id"]
+            scenario_id = data["scenario_id"]
+
+            return (
+                raster,
+                center,
+                yaw,
+                agent_id,
+                str(scenario_id),
+                data["_gt_marginal"],
+                data["gt_marginal"],
+            )
+
+        trajectory = data["gt_marginal"]
+
+        is_available = data["future_val_marginal"]
+
+        if self.return_vector:
+            return raster, trajectory, is_available, data["vector_data"]
+
+        return raster, trajectory, is_available
+
+
+class WaymoPredictionDataModule(pl.LightningDataModule):
+    def __init__(
+        self,
+        batch_size=32,
+        num_dataloader_workers=8,
+        pin_memory=True,
+        train_path="",
+        val_path="",
+        val_limit=200,
+        train_limit=0,
+    ):
+        super().__init__()
+        self.batch_size = batch_size
+        self.num_dataloader_workers = num_dataloader_workers
+        self.pin_memory = pin_memory
+        self.train_path = train_path
+        self.val_path = val_path
+        self.val_limit = val_limit
+        self.train_limit = train_limit
+
+    def prepare_data(self):
+        pass
+
+    def setup(self, stage: str):
+        # Assign train/val datasets for use in dataloaders
+        if stage == "fit":
+            self.train_set = WaymoLoader(self.train_path, limit=self.train_limit)
+            self.val_set = WaymoLoader(self.val_path, limit=self.val_limit)
+
+    def train_dataloader(self):
+        return DataLoader(
+            self.train_set,
+            batch_size=self.batch_size,
+            num_workers=self.num_dataloader_workers,
+            pin_memory=self.pin_memory,
+            persistent_workers=True,
+            drop_last=True,
+        )
+
+    def val_dataloader(self):
+        return DataLoader(
+            self.val_set,
+            batch_size=self.batch_size,
+            num_workers=self.num_dataloader_workers,
+            pin_memory=self.pin_memory,
+            persistent_workers=True,
+            drop_last=True,
+        )
+
+
 class WovenPredictionGraphDataModule(pl.LightningDataModule):
     def __init__(
         self,
