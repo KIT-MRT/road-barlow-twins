@@ -3,7 +3,9 @@ Self-supervised pre-training method for HD map assisted motion prediction.
 
 ### Overview
 ![Model architecture](assets/road-bralow-twins.png "Model architecture")
+
 Left: Pre-training and fine-tuning objectives. Pre-training: Maximize the similarity of moderately augmented views of HD maps. Fine-tuning: Motion prediction with six trajectory proposals per agent.
+
 Right: Proposed DNN model for motion prediction with seperate encoders for map and past agent trajectories.
 
 ### Getting started
