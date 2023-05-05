@@ -23,6 +23,18 @@ def parse_args():
     parser.add_argument("--train-hours", type=float, required=False, default=9.0)
     parser.add_argument("--save-dir", type=str, required=True)
     parser.add_argument("--train-sample-limit", type=int, required=False, default=0)
+    parser.add_argument(
+        "--train-path",
+        type=str,
+        required=False,
+        default="/p/project/hai_mrt_pc/waymo-prediction/pre-rendered/train",
+    )
+    parser.add_argument(
+        "--val-path",
+        type=str,
+        required=False,
+        default="/p/project/hai_mrt_pc/waymo-prediction/pre-rendered/dev",
+    )
 
     args = parser.parse_args()
 
@@ -32,7 +44,15 @@ def parse_args():
 class SimCLR(pl.LightningModule):
     """Based on: https://github.com/Spijkervet/SimCLR"""
 
-    def __init__(self, encoder, projection_dim, n_features, batch_size, learning_rate, max_epochs=200):
+    def __init__(
+        self,
+        encoder,
+        projection_dim,
+        n_features,
+        batch_size,
+        learning_rate,
+        max_epochs=200,
+    ):
         super().__init__()
 
         self.encoder = encoder
@@ -58,7 +78,7 @@ class SimCLR(pl.LightningModule):
         z_j = self.projector(h_j)
 
         return z_i, z_j
-    
+
     def training_step(self, batch, batch_idx):
         z_i, z_j = self.forward(batch)
         loss = self.loss_fn(z_i, z_j)
@@ -72,7 +92,7 @@ class SimCLR(pl.LightningModule):
         self.log("val_loss", loss, on_step=True, on_epoch=False, sync_dist=True)
 
         return loss
-    
+
     def configure_optimizers(self):
         optimizer = torch.optim.AdamW(self.parameters(), lr=self.learning_rate)
         return {
@@ -157,8 +177,8 @@ def main():
         batch_size=args.batch_size,
         num_dataloader_workers=10,
         pin_memory=True,
-        train_path="/p/project/hai_mrt_pc/waymo-prediction/pre-rendered/train",
-        val_path="/p/project/hai_mrt_pc/waymo-prediction/pre-rendered/dev",
+        train_path=args.train_path,
+        val_path=args.val_path,
         val_limit=24 * 100,
     )
 

@@ -26,7 +26,19 @@ def parse_args():
     parser.add_argument("--save-dir", type=str, required=True)
     parser.add_argument("--train-sample-limit", type=int, required=False, default=0)
     parser.add_argument("--num-nodes", type=int, required=False, default=1)
-
+    parser.add_argument(
+        "--train-path",
+        type=str,
+        required=False,
+        default="/p/project/hai_mrt_pc/waymo-prediction/pre-rendered/train",
+    )
+    parser.add_argument(
+        "--val-path",
+        type=str,
+        required=False,
+        default="/p/project/hai_mrt_pc/waymo-prediction/pre-rendered/dev",
+    )
+    
     args = parser.parse_args()
 
     return args
@@ -184,8 +196,8 @@ def main():
         batch_size=args.batch_size,
         num_dataloader_workers=12,
         pin_memory=True,
-        train_path="/p/project/hai_mrt_pc/waymo-prediction/pre-rendered/train",
-        val_path="/p/project/hai_mrt_pc/waymo-prediction/pre-rendered/dev",
+        train_path=args.train_path,
+        val_path=args.val_path,
         val_limit=24 * 100,
         train_limit=args.train_sample_limit,
     )
