@@ -1,0 +1,4 @@
+torch==1.11.0+cu113
+timm==0.6.12
+pytorch_lightning==2.0.0
+vit_pytorch
