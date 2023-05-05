@@ -12,7 +12,7 @@ Right: Proposed DNN model for motion prediction with seperate encoders for map d
 ```python
 # cd src/road_barlow_twins
 import timm
-from .models.dual_motion_vit import DualMotionViT
+from models.dual_motion_vit import DualMotionViT
 
 map_encoder = timm.create_model(
     "vit_base_patch16_224",
