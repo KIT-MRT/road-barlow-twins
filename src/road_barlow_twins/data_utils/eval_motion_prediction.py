@@ -12,7 +12,7 @@ from l5kit.evaluation.metrics import (
     neg_multi_log_likelihood,
 )
 
-from dataset_modules import WaymoLoader
+from data_utils.dataset_modules import WaymoLoader
 
 
 def run_eval_dataframe(
