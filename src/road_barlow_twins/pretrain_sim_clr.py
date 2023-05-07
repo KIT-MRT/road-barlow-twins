@@ -23,6 +23,8 @@ def parse_args():
     parser.add_argument("--train-hours", type=float, required=False, default=9.0)
     parser.add_argument("--save-dir", type=str, required=True)
     parser.add_argument("--train-sample-limit", type=int, required=False, default=0)
+    parser.add_argument("--num-nodes", type=int, required=False, default=1)
+    parser.add_argument("--num-gpus", type=int, required=False, default=4)
     parser.add_argument(
         "--train-path",
         type=str,
@@ -187,8 +189,8 @@ def main():
     trainer = Trainer(
         precision=16,
         accelerator="gpu",
-        devices=4,
-        num_nodes=1,
+        devices=args.num_gpus,
+        num_nodes=args.num_nodes,
         max_time={"days": 0, "hours": args.train_hours},
         default_root_dir=args.save_dir,
         callbacks=[lr_monitor],
