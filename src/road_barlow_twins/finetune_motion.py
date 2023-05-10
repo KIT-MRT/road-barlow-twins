@@ -28,6 +28,7 @@ def parse_args():
     parser.add_argument("--num-gpus", type=int, required=False, default=4)
     parser.add_argument("--time-limit", type=int, required=False, default=80)
     parser.add_argument("--logger", type=str, required=False, default="csv")
+    parser.add_argument("--run-prefix", type=str, required=False, default='')
     parser.add_argument(
         "--train-path",
         type=str,
@@ -56,7 +57,7 @@ def main():
         logger = WandbLogger(
             project="road-barlow-twins",
             save_dir=args.save_dir,
-            name=f"{args.model}-{start_time}",
+            name=f"{args.run_prefix}-{args.model}-{start_time}",
             offline=True
         )
 
@@ -112,7 +113,7 @@ def main():
     if trainer.is_global_zero:
         torch.save(
             motion_predictor.state_dict(),
-            f"{args.save_dir}/models/{args.model}-{start_time}.pt",
+            f"{args.save_dir}/models/{args.run_prefix}-{args.model}-{start_time}.pt",
         )
 
         pred_metrics = run_eval_dataframe(
