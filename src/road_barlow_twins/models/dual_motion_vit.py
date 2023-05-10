@@ -15,7 +15,6 @@ class DualMotionViT(pl.LightningModule):
         agent_encoder_dim=768,
         fusion_depth=2,
         n_traj=6,
-        p_dropout_head=0.3,
         time_limit=50,
         lr=1e-4,
     ) -> None:
@@ -35,9 +34,6 @@ class DualMotionViT(pl.LightningModule):
         )
         self.motion_head = nn.Sequential(
             nn.LayerNorm((agent_encoder_dim,), eps=1e-06, elementwise_affine=True),
-            nn.Linear(in_features=agent_encoder_dim, out_features=agent_encoder_dim),
-            nn.ReLU(),
-            nn.Dropout(p=p_dropout_head),
             nn.Linear(
                 in_features=agent_encoder_dim,
                 out_features=self.n_traj * 2 * self.time_limit + self.n_traj,
