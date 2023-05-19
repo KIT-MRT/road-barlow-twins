@@ -1,9 +1,8 @@
 import os
-import torch
 import numpy as np
 import pytorch_lightning as pl
 
-from torch.utils.data import DataLoader, Subset, Dataset
+from torch.utils.data import DataLoader, Dataset
 
 from .raster_barlow_twins_transform import BarlowTwinsTransform
 
