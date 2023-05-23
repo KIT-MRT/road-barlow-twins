@@ -1,10 +1,71 @@
 import os
+import torch
 import numpy as np
 import pytorch_lightning as pl
+import torch.nn.functional as F
 
 from torch.utils.data import DataLoader, Dataset
 
 from .raster_barlow_twins_transform import BarlowTwinsTransform
+from .road_env_graph_utils import (
+    RoadEnvGraphAugmentations,
+    waymo_vectors_to_road_env_graph,
+)
+
+
+class WaymoRoadEnvGraphDataset(Dataset):
+    def __init__(self, directory, limit=0, is_test=False, augment=False, max_len=400):
+        files = os.listdir(directory)
+        self.files = [os.path.join(directory, f) for f in files if f.endswith(".npz")]
+
+        if limit > 0:
+            self.files = self.files[:limit]
+        else:
+            self.files = sorted(self.files)
+
+        self.is_test = is_test
+        self.max_len = max_len
+        self.transform = RoadEnvGraphAugmentations()
+
+    def __len__(self):
+        return len(self.files)
+
+    def __getitem__(self, idx):
+        filename = self.files[idx]
+        data = np.load(filename, allow_pickle=True)
+
+        vectors = data["vector_data"].astype("float32")
+        road_graph = waymo_vectors_to_road_env_graph(
+            vectors, max_dist=55, lane_sampling_rate=3
+        )
+        sample_a, sample_b = self.transform(road_graph)
+        sample_len = sample_a.size(dim=0)
+
+        pad_len = 0
+        if sample_len < self.max_len:
+            pad_len = self.max_len - sample_len
+
+        return {
+            "sample_a": {
+                "idx_src_tokens": (
+                    F.pad(sample_a[:, 2], pad=(0, pad_len), value=10)
+                ).int(),  # [pad] token at idx 10
+                "pos_src_tokens": (
+                    F.pad(sample_a[:, 0:2], pad=(0, 0, 0, pad_len), value=0)
+                ).float(),
+            },
+            "sample_b": {
+                "idx_src_tokens": (
+                    F.pad(sample_b[:, 2], pad=(0, pad_len), value=10)
+                ).int(),
+                "pos_src_tokens": (
+                    F.pad(sample_b[:, 0:2], pad=(0, 0, 0, pad_len), value=0)
+                ).float(),
+            },
+            "src_attn_mask": (
+                F.pad(torch.ones(sample_len), pad=(0, pad_len), value=0)
+            ).bool(),
+        }
 
 
 class WaymoBarlowRasterLoader(Dataset):
