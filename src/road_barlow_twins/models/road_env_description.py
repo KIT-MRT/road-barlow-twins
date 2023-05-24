@@ -5,6 +5,7 @@ from torch import nn, Tensor
 from local_attention import LocalAttention
 
 from .raster_barlow_twins import BarlowTwinsLoss
+from .dual_motion_vit import pytorch_neg_multi_log_likelihood_batch
 
 
 class REDEncoder(pl.LightningModule):
@@ -136,6 +137,232 @@ class REDEncoder(pl.LightningModule):
                 "name": "lr",
             },
         }
+
+
+class EgoTrajectoryEncoder(nn.Module):
+    def __init__(
+        self,
+        dim_semantic_embedding=4,
+        max_dist=50.0,
+        num_timesteps=11,
+        num_layers=6,
+        dim_model=128,
+        num_heads=8,
+        dim_feedforward=512,
+        dropout=0.1,
+        dim_output=256,
+    ):
+        super().__init__()
+        self.to_dim_model = nn.Linear(
+            in_features=dim_semantic_embedding + 3,  # 2 pos, 1 temp
+            out_features=dim_model,
+        )
+        self.semantic_embedding = nn.Embedding(
+            num_embeddings=6,  # Classes static + dynamic
+            embedding_dim=dim_semantic_embedding,
+        )
+        self.max_dist = max_dist
+        self.num_timesteps = num_timesteps
+
+        self.layers = nn.ModuleList(
+            [
+                TransformerEncoderLayer(dim_model, num_heads, dim_feedforward, dropout)
+                for _ in range(num_layers)
+            ]
+        )
+        self.linear = nn.Linear(dim_model, dim_output)
+
+    def forward(self, idxs_semantic_embedding, pos_src_tokens):
+        pos_src_tokens /= self.max_dist
+        batch_size = idxs_semantic_embedding.size(dim=0)
+        time_encoding = torch.arange(0, self.num_timesteps) / (self.num_timesteps - 1)
+        time_encoding = time_encoding.expand(batch_size, -1)[:, :, None]
+        time_encoding = time_encoding.to("cuda")
+
+        src = torch.concat(
+            (
+                self.semantic_embedding(idxs_semantic_embedding),
+                pos_src_tokens,
+                time_encoding,
+            ),
+            dim=2,
+        )
+        src = self.to_dim_model(src)
+
+        for layer in self.layers:
+            src = layer(src, src, src)
+
+        return self.linear(src)
+
+
+class REDMotionPredictor(pl.LightningModule):
+    def __init__(
+        self,
+        dim_road_env_encoder,
+        dim_road_env_attn_window,
+        dim_ego_trajectory_encoder,
+        num_trajectory_proposals,
+        prediction_horizon,
+        batch_size,
+        learning_rate
+    ):
+        super().__init__()
+        self.num_trajectory_proposals = num_trajectory_proposals
+        self.prediction_horizon = prediction_horizon
+        self.lr = learning_rate
+
+        self.road_env_encoder = REDEncoder(
+            dim_model=dim_road_env_encoder,
+            dim_attn_window_encoder=dim_road_env_attn_window,
+            batch_size=batch_size,
+        )
+        self.ego_trajectory_encoder = EgoTrajectoryEncoder(
+            dim_model=dim_ego_trajectory_encoder,
+            dim_output=dim_road_env_encoder,
+        )
+        self.fusion_block = REDFusionBlock(dim_model=dim_road_env_encoder)
+        self.motion_head = nn.Sequential(
+            nn.LayerNorm((dim_road_env_encoder,), eps=1e-06, elementwise_affine=True),
+            nn.Linear(
+                in_features=dim_road_env_encoder,
+                out_features=num_trajectory_proposals * 2 * prediction_horizon
+                + num_trajectory_proposals,
+            ),  # Multiple trajectory proposals with (x, y) every 0.1 sec and confidences
+        )
+
+    def forward(
+        self,
+        env_idxs_src_tokens: Tensor,
+        env_pos_src_tokens: Tensor,
+        env_src_mask: Tensor,
+        ego_idxs_semantic_embedding: Tensor,
+        ego_pos_src_tokens: Tensor,
+    ):
+        road_env_tokens = self.road_env_encoder(
+            env_idxs_src_tokens, env_pos_src_tokens, env_src_mask
+        )
+        ego_trajectory_tokens = self.ego_trajectory_encoder(
+            ego_idxs_semantic_embedding, ego_pos_src_tokens
+        )
+        fused_tokens = self.fusion_block(
+            q=ego_trajectory_tokens,
+            k=road_env_tokens,
+            v=road_env_tokens,
+        )
+        motion_embedding = self.motion_head(
+            fused_tokens.mean(dim=1)
+        )  # Sim. to improved ViT global avg pooling before classification
+        confidences_logits, logits = (
+            motion_embedding[:, : self.num_trajectory_proposals],
+            motion_embedding[:, self.num_trajectory_proposals :],
+        )
+        logits = logits.view(
+            -1, self.num_trajectory_proposals, self.prediction_horizon, 2
+        )
+
+        return confidences_logits, logits
+    
+    def _shared_step(self, batch, batch_idx):
+        # x, y, is_available = batch
+        is_available = batch["future_ego_trajectory"]["is_available"]
+        y = batch["future_ego_trajectory"]["trajectory"]
+
+        env_idxs_src_tokens=batch["sample_a"]["idx_src_tokens"]
+        env_pos_src_tokens=batch["sample_a"]["pos_src_tokens"]
+        env_src_mask=batch["src_attn_mask"]
+        ego_idxs_semantic_embedding = batch["past_ego_trajectory"]["idx_semantic_embedding"]
+        ego_pos_src_tokens = batch["past_ego_trajectory"]["pos_src_tokens"]
+        
+        y = y[:, : self.prediction_horizon, :]
+        is_available = is_available[:, : self.prediction_horizon]
+        confidences_logits, logits = self.forward(
+            env_idxs_src_tokens,
+            env_pos_src_tokens,
+            env_src_mask,
+            ego_idxs_semantic_embedding,
+            ego_pos_src_tokens
+        )
+
+        loss = pytorch_neg_multi_log_likelihood_batch(
+            y, logits, confidences_logits, is_available
+        )
+        return loss
+
+    def training_step(self, batch, batch_idx):
+        loss = self._shared_step(batch, batch_idx)
+        self.log("train_loss", loss, sync_dist=True)
+
+        return loss
+
+    def validation_step(self, batch, batch_idx):
+        loss = self._shared_step(batch, batch_idx)
+        self.log("val_loss", loss, sync_dist=True)
+
+        return loss
+
+    def configure_optimizers(self):
+        optimizer = torch.optim.AdamW(self.parameters(), lr=self.lr)
+        return {
+            "optimizer": optimizer,
+            "lr_scheduler": {
+                "scheduler": torch.optim.lr_scheduler.CosineAnnealingLR(
+                    optimizer,
+                    T_max=190,
+                    eta_min=1e-6,
+                ),
+                "interval": "epoch",
+                "frequency": 1,
+                "name": "lr",
+            },
+        }
+
+
+class REDFusionBlock(nn.Module):
+    def __init__(
+        self,
+        num_layers=3,
+        num_heads=8,
+        dim_model=128,
+        dim_feedforward=1024,
+        dropout=0.1,
+    ):
+        super().__init__()
+
+        self.layers = nn.ModuleList(
+            [
+                TransformerEncoderLayer(dim_model, num_heads, dim_feedforward, dropout)
+                for _ in range(num_layers)
+            ]
+        )
+
+    def forward(self, q, k, v):
+        for layer in self.layers:
+            q = layer(q, k, v)
+
+        return q
+
+
+class TransformerEncoderLayer(nn.Module):
+    def __init__(self, dim_model, num_heads, dim_feedforward, dropout):
+        super().__init__()
+        self.attn = Residual(
+            nn.MultiheadAttention(
+                embed_dim=dim_model,
+                num_heads=num_heads,
+                batch_first=True,
+            ),
+            dimension=dim_model,
+            dropout=dropout,
+        )
+        self.feed_forward = Residual(
+            feed_forward(dim_model, dim_feedforward),
+            dimension=dim_model,
+            dropout=dropout,
+        )
+
+    def forward(self, src_q, src_k, src_v):
+        attn_out = self.attn(src_q, src_k, src_v, need_weights=False)
+        return self.feed_forward(attn_out)
 
 
 class LocalMultiheadAttention(nn.Module):
@@ -323,7 +550,7 @@ class Residual(nn.Module):
         # nn.MultiheadAttention always returns a tuple (out, attn_weights or None)
         if isinstance(output_sublayer, tuple):
             output_sublayer = output_sublayer[0]
-        
+
         return self.norm(tensors[0] + self.dropout(output_sublayer))
 
 
