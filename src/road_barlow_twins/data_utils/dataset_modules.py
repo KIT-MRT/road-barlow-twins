@@ -10,6 +10,7 @@ from .raster_barlow_twins_transform import BarlowTwinsTransform
 from .road_env_graph_utils import (
     RoadEnvGraphAugmentations,
     waymo_vectors_to_road_env_graph,
+    waymo_vectors_to_past_ego_trajectory,
 )
 
 
@@ -97,6 +98,16 @@ class WaymoRoadEnvGraphDataset(Dataset):
         if sample_len < self.max_len:
             pad_len = self.max_len - sample_len
 
+        past_ego_trajectory = waymo_vectors_to_past_ego_trajectory(vectors)
+        
+        if len(past_ego_trajectory) != 11:
+            pad_trajectory = 11 - len(past_ego_trajectory)
+            past_ego_trajectory = np.pad(past_ego_trajectory, pad_width=((pad_trajectory, 0), (0, 0)), mode="edge")
+        
+        past_ego_trajectory = torch.tensor(past_ego_trajectory)
+        is_available = torch.tensor(data["future_val_marginal"])
+        future_trajectory = torch.tensor(data["gt_marginal"])
+        
         return {
             "sample_a": {
                 "idx_src_tokens": (
@@ -113,6 +124,14 @@ class WaymoRoadEnvGraphDataset(Dataset):
                 "pos_src_tokens": (
                     F.pad(sample_b[:, 0:2], pad=(0, 0, 0, pad_len), value=0)
                 ).float(),
+            },
+            "past_ego_trajectory": {
+                "idx_semantic_embedding": past_ego_trajectory[:, 2].int(),
+                "pos_src_tokens": past_ego_trajectory[:, 0:2].float(),
+            },
+            "future_ego_trajectory": {
+                "is_available": is_available,
+                "trajectory": future_trajectory,
             },
             "src_attn_mask": (
                 F.pad(torch.ones(sample_len), pad=(0, pad_len), value=0)
