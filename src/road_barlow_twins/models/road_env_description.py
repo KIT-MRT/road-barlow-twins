@@ -4,7 +4,7 @@ import pytorch_lightning as pl
 from torch import nn, Tensor
 from local_attention import LocalAttention
 
-from raster_barlow_twins import BarlowTwinsLoss
+from .raster_barlow_twins import BarlowTwinsLoss
 
 
 class REDEncoder(pl.LightningModule):
@@ -236,15 +236,23 @@ class ParallelTransformerDecoderLayer(nn.Module):
     ):
         super().__init__()
         self.num_heads = num_heads
-        self.self_attn = nn.MultiheadAttention(
-            embed_dim=dim_model,
-            num_heads=num_heads,
-            batch_first=True,
+        self.self_attn = Residual(
+            nn.MultiheadAttention(
+                embed_dim=dim_model,
+                num_heads=num_heads,
+                batch_first=True,
+            ),
+            dimension=dim_model,
+            dropout=dropout,
         )
-        self.cross_attn = nn.MultiheadAttention(
-            embed_dim=dim_model,
-            num_heads=num_heads,
-            batch_first=True,
+        self.cross_attn = Residual(
+            nn.MultiheadAttention(
+                embed_dim=dim_model,
+                num_heads=num_heads,
+                batch_first=True,
+            ),
+            dimension=dim_model,
+            dropout=dropout,
         )
         self.feed_forward = Residual(
             feed_forward(dim_model, dim_feedforward),
