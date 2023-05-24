@@ -261,13 +261,13 @@ class ParallelTransformerDecoderLayer(nn.Module):
         )
 
     def forward(self, tgt: Tensor, memory: Tensor, mem_mask: Tensor) -> Tensor:
-        tgt, _ = self.self_attn(tgt, tgt, tgt, need_weights=False)
+        tgt = self.self_attn(tgt, tgt, tgt, need_weights=False)
         batch_size, tgt_len = tgt.size(dim=0), tgt.size(dim=1)
         mem_mask = mem_mask[:, None, :].expand(batch_size, tgt_len, -1)
         mem_mask = mem_mask.repeat(1, self.num_heads, 1)
         mem_mask = mem_mask.view(batch_size * self.num_heads, tgt_len, -1)
 
-        tgt, _ = self.cross_attn(
+        tgt = self.cross_attn(
             tgt, memory, memory, attn_mask=mem_mask, need_weights=False
         )
 
@@ -315,10 +315,16 @@ class Residual(nn.Module):
         self.norm = nn.LayerNorm(dimension)
         self.dropout = nn.Dropout(dropout)
 
-    def forward(self, *tensors: Tensor) -> Tensor:
+    def forward(self, *tensors: Tensor, **kwargs: dict) -> Tensor:
         # Assume that the "query" tensor is given first, so we can compute the
         # residual.  This matches the signature of 'MultiHeadAttention'.
-        return self.norm(tensors[0] + self.dropout(self.sublayer(*tensors)))
+        output_sublayer = self.sublayer(*tensors, **kwargs)
+
+        # nn.MultiheadAttention always returns a tuple (out, attn_weights or None)
+        if isinstance(output_sublayer, tuple):
+            output_sublayer = output_sublayer[0]
+        
+        return self.norm(tensors[0] + self.dropout(output_sublayer))
 
 
 def position_encoding(
