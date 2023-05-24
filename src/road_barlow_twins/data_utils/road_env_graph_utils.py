@@ -117,3 +117,19 @@ def waymo_vectors_to_road_env_graph(
     road_graph = waymo_one_hot_to_embedding_idx(lanes_and_agents)
 
     return road_graph
+
+
+def waymo_vectors_to_past_ego_trajectory(waymo_vectors, semantic_offset=4):
+    vectors, idx_global = waymo_vectors[:, :45], waymo_vectors[:, 44].flatten()
+
+    for idx in np.unique(idx_global):
+        _vectors = vectors[idx_global == idx]
+
+        if _vectors[:, 5:12].sum() > 0:
+            distance = np.sqrt(_vectors[-1][0]**2 + _vectors[-1][1]**2)
+            if distance == 0.0:
+                past_ego_trajectory = waymo_one_hot_to_embedding_idx(_vectors)
+
+    past_ego_trajectory[:, 2] -= semantic_offset
+
+    return past_ego_trajectory
