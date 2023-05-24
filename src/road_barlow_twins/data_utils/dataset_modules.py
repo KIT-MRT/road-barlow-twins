@@ -13,8 +13,60 @@ from .road_env_graph_utils import (
 )
 
 
+class WaymoRoadEnvGraphDataModule(pl.LightningDataModule):
+    def __init__(
+        self,
+        batch_size=32,
+        num_dataloader_workers=8,
+        pin_memory=True,
+        train_path="",
+        val_path="",
+        val_limit=200,
+        train_limit=0,
+    ):
+        super().__init__()
+        self.batch_size = batch_size
+        self.num_dataloader_workers = num_dataloader_workers
+        self.pin_memory = pin_memory
+        self.train_path = train_path
+        self.val_path = val_path
+        self.val_limit = val_limit
+        self.train_limit = train_limit
+
+    def prepare_data(self):
+        pass
+
+    def setup(self, stage: str):
+        # Assign train/val datasets for use in dataloaders
+        if stage == "fit":
+            self.train_set = WaymoRoadEnvGraphDataset(
+                self.train_path, limit=self.train_limit
+            )
+            self.val_set = WaymoRoadEnvGraphDataset(self.val_path, limit=self.val_limit)
+
+    def train_dataloader(self):
+        return DataLoader(
+            self.train_set,
+            batch_size=self.batch_size,
+            num_workers=self.num_dataloader_workers,
+            pin_memory=self.pin_memory,
+            persistent_workers=True,
+            drop_last=True,
+        )
+
+    def val_dataloader(self):
+        return DataLoader(
+            self.val_set,
+            batch_size=self.batch_size,
+            num_workers=self.num_dataloader_workers,
+            pin_memory=self.pin_memory,
+            persistent_workers=True,
+            drop_last=True,
+        )
+
+
 class WaymoRoadEnvGraphDataset(Dataset):
-    def __init__(self, directory, limit=0, is_test=False, augment=False, max_len=400):
+    def __init__(self, directory, limit=0, is_test=False, augment=False, max_len=1200):
         files = os.listdir(directory)
         self.files = [os.path.join(directory, f) for f in files if f.endswith(".npz")]
 
@@ -36,7 +88,7 @@ class WaymoRoadEnvGraphDataset(Dataset):
 
         vectors = data["vector_data"].astype("float32")
         road_graph = waymo_vectors_to_road_env_graph(
-            vectors, max_dist=55, lane_sampling_rate=3
+            vectors, max_dist=50, lane_sampling_rate=3, agent_radius=25
         )
         sample_a, sample_b = self.transform(road_graph)
         sample_len = sample_a.size(dim=0)
