@@ -106,7 +106,14 @@ def waymo_vectors_to_road_env_graph(
                 road_lanes_sub = np.concatenate((road_lanes_sub, _lane))
 
     agents = np.array(agents)
-    lanes_and_agents = np.concatenate((road_lanes_sub, agents))
+
+    if len(agents) and len(road_lanes_sub):
+        lanes_and_agents = np.concatenate((road_lanes_sub, agents))
+    elif not len(agents):
+        lanes_and_agents = road_lanes_sub
+    else:
+        lanes_and_agents = agents
+    
     road_graph = waymo_one_hot_to_embedding_idx(lanes_and_agents)
 
     return road_graph
