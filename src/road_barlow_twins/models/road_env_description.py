@@ -23,7 +23,7 @@ class REDEncoder(pl.LightningModule):
         num_heads_decoder: int = 8,
         dim_feedforward: int = 2048,
         dropout: float = 0.1,
-        max_encoder_pos: float = 55.0,
+        max_dist: float = 50.0,
         z_dim: int = 512,
         batch_size: int = 8,
         max_train_epochs: int = 200,
@@ -37,7 +37,7 @@ class REDEncoder(pl.LightningModule):
             - 2,  # 2 floats for postion in (x, y) (maybe a bit small and should be increased with a Linear layer)
             padding_idx=-1,  # For [pad] token
         )
-        self.max_encoder_pos = max_encoder_pos
+        self.max_dist = max_dist
         self.encoder = LocalTransformerEncoder(
             num_layers=num_encoder_layers,
             dim_model=dim_model,
@@ -81,7 +81,7 @@ class REDEncoder(pl.LightningModule):
     def forward(
         self, idxs_src_tokens: Tensor, pos_src_tokens: Tensor, src_mask: Tensor
     ) -> Tensor:
-        pos_src_tokens /= self.max_encoder_pos
+        pos_src_tokens /= self.max_dist
         src = torch.concat(
             (self.encoder_semantic_embedding(idxs_src_tokens), pos_src_tokens), dim=2
         )  # Concat in feature dim
