@@ -14,6 +14,7 @@ class REDEncoder(pl.LightningModule):
     def __init__(
         self,
         size_encoder_vocab: int = 11,
+        dim_encoder_semantic_embedding: int = 4,
         num_encoder_layers: int = 6,
         size_decoder_vocab: int = 100,
         num_decoder_layers: int = 6,
@@ -33,9 +34,12 @@ class REDEncoder(pl.LightningModule):
         super().__init__()
         self.encoder_semantic_embedding = nn.Embedding(
             num_embeddings=size_encoder_vocab,
-            embedding_dim=dim_model
-            - 2,  # 2 floats for postion in (x, y) (maybe a bit small and should be increased with a Linear layer)
+            embedding_dim=dim_encoder_semantic_embedding,
             padding_idx=-1,  # For [pad] token
+        )
+        self.to_dim_model = nn.Linear(
+            in_features=dim_encoder_semantic_embedding + 2,  # For position as (x, y)
+            out_features=dim_model,
         )
         self.max_dist = max_dist
         self.encoder = LocalTransformerEncoder(
@@ -85,6 +89,8 @@ class REDEncoder(pl.LightningModule):
         src = torch.concat(
             (self.encoder_semantic_embedding(idxs_src_tokens), pos_src_tokens), dim=2
         )  # Concat in feature dim
+        src = self.to_dim_model(src)
+
         self.range_decoder_embedding = self.range_decoder_embedding.to("cuda")
         tgt = torch.concat(
             (
@@ -204,7 +210,7 @@ class REDMotionPredictor(pl.LightningModule):
         num_trajectory_proposals,
         prediction_horizon,
         batch_size,
-        learning_rate
+        learning_rate,
     ):
         super().__init__()
         self.num_trajectory_proposals = num_trajectory_proposals
@@ -261,18 +267,20 @@ class REDMotionPredictor(pl.LightningModule):
         )
 
         return confidences_logits, logits
-    
+
     def _shared_step(self, batch, batch_idx):
         # x, y, is_available = batch
         is_available = batch["future_ego_trajectory"]["is_available"]
         y = batch["future_ego_trajectory"]["trajectory"]
 
-        env_idxs_src_tokens=batch["sample_a"]["idx_src_tokens"]
-        env_pos_src_tokens=batch["sample_a"]["pos_src_tokens"]
-        env_src_mask=batch["src_attn_mask"]
-        ego_idxs_semantic_embedding = batch["past_ego_trajectory"]["idx_semantic_embedding"]
+        env_idxs_src_tokens = batch["sample_a"]["idx_src_tokens"]
+        env_pos_src_tokens = batch["sample_a"]["pos_src_tokens"]
+        env_src_mask = batch["src_attn_mask"]
+        ego_idxs_semantic_embedding = batch["past_ego_trajectory"][
+            "idx_semantic_embedding"
+        ]
         ego_pos_src_tokens = batch["past_ego_trajectory"]["pos_src_tokens"]
-        
+
         y = y[:, : self.prediction_horizon, :]
         is_available = is_available[:, : self.prediction_horizon]
         confidences_logits, logits = self.forward(
@@ -280,7 +288,7 @@ class REDMotionPredictor(pl.LightningModule):
             env_pos_src_tokens,
             env_src_mask,
             ego_idxs_semantic_embedding,
-            ego_pos_src_tokens
+            ego_pos_src_tokens,
         )
 
         loss = pytorch_neg_multi_log_likelihood_batch(
