@@ -12,24 +12,44 @@ from l5kit.evaluation.metrics import (
     neg_multi_log_likelihood,
 )
 
-from data_utils.dataset_modules import WaymoLoader
+from data_utils.dataset_modules import WaymoLoader, WaymoRoadEnvGraphDataset
 
 
 def run_eval_dataframe(
-    model, data, use_top1=False, n_samples=5_000, prediction_horizons=[30, 50]
+    model,
+    data,
+    use_top1=False,
+    n_samples=5_000,
+    prediction_horizons=[30, 50],
+    red_model=False,
 ):
     model.to("cuda")
     slicing_step_size = len(glob(f"{data}/*")) // n_samples
 
-    loader = DataLoader(
-        Subset(
-            WaymoLoader(data, return_vector=True),
-            torch.arange(0, n_samples * slicing_step_size, slicing_step_size),
-        ),
-        batch_size=1,
-        num_workers=16,
-        shuffle=False,
-    )
+    if red_model:
+        loader = DataLoader(
+            Subset(
+                WaymoRoadEnvGraphDataset(data),
+                torch.arange(0, n_samples * slicing_step_size, slicing_step_size),
+            ),
+            batch_size=1,
+            num_workers=16,
+            shuffle=False,
+        )
+        model.road_env_encoder.batch_size = 1
+        model.road_env_encoder.range_decoder_embedding = torch.arange(100).expand(
+            1, 100
+        )
+    else:
+        loader = DataLoader(
+            Subset(
+                WaymoLoader(data, return_vector=True),
+                torch.arange(0, n_samples * slicing_step_size, slicing_step_size),
+            ),
+            batch_size=1,
+            num_workers=16,
+            shuffle=False,
+        )
 
     n_prediction_horizons = len(prediction_horizons)
     neg_log_likelihood_scores = [[] for _ in range(n_prediction_horizons)]
@@ -39,10 +59,34 @@ def run_eval_dataframe(
     n_sample = 0
 
     with torch.no_grad():
-        for x, y, is_available, _ in tqdm(loader):
-            x, y, is_available = map(lambda x: x.cuda(), (x, y, is_available))
+        # for x, y, is_available, _ in tqdm(loader):
+        for batch in tqdm(loader):
+            # x, y, is_available = map(lambda x: x.cuda(), (x, y, is_available))
+            if red_model:
+                is_available = batch["future_ego_trajectory"]["is_available"].to("cuda")
+                y = batch["future_ego_trajectory"]["trajectory"].to("cuda")
 
-            confidences_logits, logits = model(x)
+                env_idxs_src_tokens = batch["sample_a"]["idx_src_tokens"].to("cuda")
+                env_pos_src_tokens = batch["sample_a"]["pos_src_tokens"].to("cuda")
+                env_src_mask = batch["src_attn_mask"].to("cuda")
+                ego_idxs_semantic_embedding = batch["past_ego_trajectory"][
+                    "idx_semantic_embedding"
+                ].to("cuda")
+                ego_pos_src_tokens = batch["past_ego_trajectory"]["pos_src_tokens"].to(
+                    "cuda"
+                )
+
+                confidences_logits, logits = model(
+                    env_idxs_src_tokens,
+                    env_pos_src_tokens,
+                    env_src_mask,
+                    ego_idxs_semantic_embedding,
+                    ego_pos_src_tokens,
+                )
+            else:
+                x, y, is_available, _ = batch
+                x, y, is_available = map(lambda x: x.cuda(), (x, y, is_available))
+                confidences_logits, logits = model(x)
 
             argmax = confidences_logits.argmax()
             if use_top1:
