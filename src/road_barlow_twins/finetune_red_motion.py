@@ -16,9 +16,8 @@ from data_utils.eval_motion_prediction import run_eval_dataframe
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", type=str, required=True)
-    parser.add_argument("--pretrained", action="store_true")
-    parser.add_argument("--checkpoint", type=str, required=False, default="")
-    parser.add_argument("--checkpoint2", type=str, required=False, default="")
+    parser.add_argument("--checkpoint-red-encoder", type=str, required=False, default='')
+    parser.add_argument("--checkpoint-ego-encoder", type=str, required=False, default='')
     parser.add_argument("--batch-size", type=int, required=False, default=128)
     parser.add_argument("--lr", type=float, required=False, default=1e-3)
     parser.add_argument("--train-hours", type=float, required=False, default=9.0)
@@ -54,7 +53,6 @@ def main():
         CSVLogger(
             save_dir=f"{args.save_dir}",
             version=f"{args.model}-{start_time}",
-            prefix=args.run_prefix,
         ),
         WandbLogger(
             project="road-barlow-twins",
@@ -73,6 +71,12 @@ def main():
         batch_size=args.batch_size,
         learning_rate=args.lr,
     )
+
+    if args.checkpoint_red_encoder:
+        model.load_state_dict(torch.load(args.checkpoint_red_encoder), strict=False)
+    
+    if args.checkpoint_ego_encoder:
+        model.load_state_dict(torch.load(args.checkpoint_ego_encoder), strict=False)
 
     lr_monitor = LearningRateMonitor(logging_interval="epoch")
 
@@ -105,15 +109,16 @@ def main():
             model.state_dict(),
             f"{args.save_dir}/models/{args.run_prefix}-{args.model}-{start_time}.pt",
         )
-        # pred_metrics = run_eval_dataframe( # TODO: adapt for graph input
-        #     model=model,
-        #     data=args.val_path,
-        #     prediction_horizons=[30, 50]
-        # )
-        # loggers[1].log_table(
-        #     key="motion_prediction_eval",
-        #     dataframe=pred_metrics
-        # )
+        pred_metrics = run_eval_dataframe(
+            model=model,
+            data=args.val_path,
+            prediction_horizons=[30, 50],
+            red_model=True,
+        )
+        loggers[1].log_table(
+            key="motion_prediction_eval",
+            dataframe=pred_metrics
+        )
 
 
 if __name__ == "__main__":
