@@ -16,6 +16,7 @@ from data_utils.eval_motion_prediction import run_eval_dataframe
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", type=str, required=True)
+    parser.add_argument("--checkpoint", type=str, required=False, default='')
     parser.add_argument("--checkpoint-red-encoder", type=str, required=False, default='')
     parser.add_argument("--checkpoint-ego-encoder", type=str, required=False, default='')
     parser.add_argument("--batch-size", type=int, required=False, default=128)
@@ -72,6 +73,9 @@ def main():
         learning_rate=args.lr,
     )
 
+    if args.checkpoint:
+        model.load_state_dict(torch.load(args.checkpoint))
+    
     if args.checkpoint_red_encoder:
         model.load_state_dict(torch.load(args.checkpoint_red_encoder), strict=False)
     
