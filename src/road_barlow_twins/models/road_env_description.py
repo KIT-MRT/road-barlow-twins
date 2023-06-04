@@ -211,6 +211,8 @@ class REDMotionPredictor(pl.LightningModule):
         prediction_horizon,
         batch_size,
         learning_rate,
+        auxiliary_rbt_loss=False,
+        auxiliary_loss_weight=0.3,
     ):
         super().__init__()
         self.num_trajectory_proposals = num_trajectory_proposals
@@ -238,6 +240,8 @@ class REDMotionPredictor(pl.LightningModule):
                 + num_trajectory_proposals,
             ),  # Multiple trajectory proposals with (x, y) every 0.1 sec and confidences
         )
+        self.auxiliary_rbt_loss = auxiliary_rbt_loss
+        self.auxiliary_loss_weight = auxiliary_loss_weight
 
     def forward(
         self,
@@ -286,17 +290,61 @@ class REDMotionPredictor(pl.LightningModule):
 
         y = y[:, : self.prediction_horizon, :]
         is_available = is_available[:, : self.prediction_horizon]
-        confidences_logits, logits = self.forward(
-            env_idxs_src_tokens,
-            env_pos_src_tokens,
-            env_src_mask,
-            ego_idxs_semantic_embedding,
-            ego_pos_src_tokens,
-        )
 
-        loss = pytorch_neg_multi_log_likelihood_batch(
-            y, logits, confidences_logits, is_available
-        )
+        if self.auxiliary_rbt_loss:
+            road_env_tokens_a = self.road_env_encoder(
+                idxs_src_tokens=batch["sample_a"]["idx_src_tokens"],
+                pos_src_tokens=batch["sample_a"]["pos_src_tokens"],
+                src_mask=batch["src_attn_mask"],
+            )
+            road_env_tokens_b = self.road_env_encoder(
+                idxs_src_tokens=batch["sample_b"]["idx_src_tokens"],
+                pos_src_tokens=batch["sample_b"]["pos_src_tokens"],
+                src_mask=batch["src_attn_mask"],
+            )
+            env_z_a = self.road_env_encoder.projection_head(
+                road_env_tokens_a.mean(dim=1)
+            )
+            env_z_b = self.road_env_encoder.projection_head(
+                road_env_tokens_b.mean(dim=1)
+            )
+            rbt_loss = self.road_env_encoder.loss_fn(env_z_a, env_z_b)
+
+            ego_trajectory_tokens = self.ego_trajectory_encoder(
+                ego_idxs_semantic_embedding, ego_pos_src_tokens
+            )
+            fused_tokens = self.fusion_block(
+                q=ego_trajectory_tokens,
+                k=road_env_tokens_a,
+                v=road_env_tokens_a,
+            )
+            motion_embedding = self.motion_head(
+                fused_tokens.mean(dim=1)
+            )
+            confidences_logits, logits = (
+                motion_embedding[:, : self.num_trajectory_proposals],
+                motion_embedding[:, self.num_trajectory_proposals :],
+            )
+            logits = logits.view(
+                -1, self.num_trajectory_proposals, self.prediction_horizon, 2
+            )
+            motion_loss = pytorch_neg_multi_log_likelihood_batch(
+                y, logits, confidences_logits, is_available
+            )
+
+            loss = motion_loss + self.auxiliary_loss_weight * rbt_loss
+        else:
+            confidences_logits, logits = self.forward(
+                env_idxs_src_tokens,
+                env_pos_src_tokens,
+                env_src_mask,
+                ego_idxs_semantic_embedding,
+                ego_pos_src_tokens,
+            )
+
+            loss = pytorch_neg_multi_log_likelihood_batch(
+                y, logits, confidences_logits, is_available
+            )
         return loss
 
     def training_step(self, batch, batch_idx):

@@ -19,6 +19,8 @@ def parse_args():
     parser.add_argument("--checkpoint", type=str, required=False, default='')
     parser.add_argument("--checkpoint-red-encoder", type=str, required=False, default='')
     parser.add_argument("--checkpoint-ego-encoder", type=str, required=False, default='')
+    parser.add_argument("--use-auxiliary-rbt-loss", action="store_true")
+    parser.add_argument("--auxiliary-rbt-loss-weight", type=float, required=False, default=0.3)
     parser.add_argument("--batch-size", type=int, required=False, default=128)
     parser.add_argument("--lr", type=float, required=False, default=1e-3)
     parser.add_argument("--train-hours", type=float, required=False, default=9.0)
@@ -71,6 +73,8 @@ def main():
         prediction_horizon=50,
         batch_size=args.batch_size,
         learning_rate=args.lr,
+        auxiliary_rbt_loss=args.use_auxiliary_rbt_loss,
+        auxiliary_loss_weight=args.auxiliary_rbt_loss_weight,
     )
 
     if args.checkpoint:
