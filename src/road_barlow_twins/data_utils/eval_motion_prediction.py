@@ -19,7 +19,7 @@ def run_eval_dataframe(
     model,
     data,
     use_top1=False,
-    n_samples=5_000,
+    n_samples=192_181,
     prediction_horizons=[30, 50],
     red_model=False,
 ):
