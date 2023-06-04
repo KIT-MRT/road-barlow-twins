@@ -24,7 +24,7 @@ def run_eval_dataframe(
     red_model=False,
 ):
     model.to("cuda")
-    slicing_step_size = len(glob(f"{data}/*")) // n_samples
+    slicing_step_size = len(glob(f"{data}/*.npz")) // n_samples
 
     if red_model:
         loader = DataLoader(
