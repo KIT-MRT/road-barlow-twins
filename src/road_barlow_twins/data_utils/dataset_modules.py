@@ -69,11 +69,10 @@ class WaymoRoadEnvGraphDataModule(pl.LightningDataModule):
 
 class WaymoRoadEnvGraphDataset(Dataset):
     def __init__(self, directory, glob_path='', limit=0, is_test=False, augment=False, max_len=1200):
-        files = os.listdir(directory)
-
         if glob_path:
             self.files = glob(glob_path)
         else:
+            files = os.listdir(directory)
             self.files = [os.path.join(directory, f) for f in files if f.endswith(".npz")]
 
         if limit > 0:
