@@ -4,6 +4,7 @@ import numpy as np
 import pytorch_lightning as pl
 import torch.nn.functional as F
 
+from glob import glob
 from torch.utils.data import DataLoader, Dataset
 
 from .raster_barlow_twins_transform import BarlowTwinsTransform
@@ -67,9 +68,13 @@ class WaymoRoadEnvGraphDataModule(pl.LightningDataModule):
 
 
 class WaymoRoadEnvGraphDataset(Dataset):
-    def __init__(self, directory, limit=0, is_test=False, augment=False, max_len=1200):
+    def __init__(self, directory, glob_path='', limit=0, is_test=False, augment=False, max_len=1200):
         files = os.listdir(directory)
-        self.files = [os.path.join(directory, f) for f in files if f.endswith(".npz")]
+
+        if glob_path:
+            self.files = glob(glob_path)
+        else:
+            self.files = [os.path.join(directory, f) for f in files if f.endswith(".npz")]
 
         if limit > 0:
             self.files = self.files[:limit]
