@@ -212,7 +212,7 @@ def run_waymo_eval_per_class(
 ):
     """Agent classes: Vehicle, pedestrian, cyclist"""
     model.to("cuda")
-    
+
     class_names = ["vehicle, pedestrian, cyclist"]
     vehicle_samples = f"{data}/vehicle*.npz"
     pedestrian_samples = f"{data}/pedestrian*.npz"
@@ -225,11 +225,12 @@ def run_waymo_eval_per_class(
     if red_model:
         vehicle_loader = DataLoader(
             Subset(
-                WaymoRoadEnvGraphDataset(
-                    directory='',
-                    glob_path=vehicle_samples
+                WaymoRoadEnvGraphDataset(directory="", glob_path=vehicle_samples),
+                torch.arange(
+                    0,
+                    n_samples_per_class * slicing_step_size_vehicle,
+                    slicing_step_size_vehicle,
                 ),
-                torch.arange(0, n_samples_per_class * slicing_step_size_vehicle, slicing_step_size_vehicle),
             ),
             batch_size=1,
             num_workers=16,
@@ -237,11 +238,12 @@ def run_waymo_eval_per_class(
         )
         pedestrian_loader = DataLoader(
             Subset(
-                WaymoRoadEnvGraphDataset(
-                    directory='',
-                    glob_path=pedestrian_samples
+                WaymoRoadEnvGraphDataset(directory="", glob_path=pedestrian_samples),
+                torch.arange(
+                    0,
+                    n_samples_per_class * slicing_step_size_pedestrian,
+                    slicing_step_size_pedestrian,
                 ),
-                torch.arange(0, n_samples_per_class * slicing_step_size_pedestrian, slicing_step_size_pedestrian),
             ),
             batch_size=1,
             num_workers=16,
@@ -249,11 +251,12 @@ def run_waymo_eval_per_class(
         )
         cyclist_loader = DataLoader(
             Subset(
-                WaymoRoadEnvGraphDataset(
-                    directory='',
-                    glob_path=cyclist_samples
+                WaymoRoadEnvGraphDataset(directory="", glob_path=cyclist_samples),
+                torch.arange(
+                    0,
+                    n_samples_per_class * slicing_step_size_cyclist,
+                    slicing_step_size_cyclist,
                 ),
-                torch.arange(0, n_samples_per_class * slicing_step_size_cyclist, slicing_step_size_cyclist),
             ),
             batch_size=1,
             num_workers=16,
@@ -265,7 +268,7 @@ def run_waymo_eval_per_class(
         model.road_env_encoder.range_decoder_embedding = torch.arange(100).expand(
             1, 100
         )
-    
+
     res_per_class = pd.DataFrame()
     n_prediction_horizons = len(prediction_horizons)
 
@@ -280,7 +283,9 @@ def run_waymo_eval_per_class(
 
             for batch in tqdm(loader):
                 if red_model:
-                    is_available = batch["future_ego_trajectory"]["is_available"].to("cuda")
+                    is_available = batch["future_ego_trajectory"]["is_available"].to(
+                        "cuda"
+                    )
                     y = batch["future_ego_trajectory"]["trajectory"].to("cuda")
 
                     env_idxs_src_tokens = batch["sample_a"]["idx_src_tokens"].to("cuda")
@@ -289,9 +294,9 @@ def run_waymo_eval_per_class(
                     ego_idxs_semantic_embedding = batch["past_ego_trajectory"][
                         "idx_semantic_embedding"
                     ].to("cuda")
-                    ego_pos_src_tokens = batch["past_ego_trajectory"]["pos_src_tokens"].to(
-                        "cuda"
-                    )
+                    ego_pos_src_tokens = batch["past_ego_trajectory"][
+                        "pos_src_tokens"
+                    ].to("cuda")
 
                     confidences_logits, logits = model(
                         env_idxs_src_tokens,
@@ -358,50 +363,66 @@ def run_waymo_eval_per_class(
                         )
                     )
             for idx, prediction_horizon in enumerate(prediction_horizons[::-1]):
-                res_per_class[f"{class_name} NLL @{prediction_horizon}"] = [np.mean(
-                    np.mean(neg_log_likelihood_scores[idx]), 3
-                )]
-                res_per_class[f"{class_name} RMSE @{prediction_horizon}"] = [np.mean(
-                    np.mean(rmse_scores[idx]), 3
-                )]
-                res_per_class[f"{class_name} minADE @{prediction_horizon}"] = [np.mean(
-                    np.mean(min_ade_scores[idx]), 3
-                )]
-                res_per_class[f"{class_name} minFDE @{prediction_horizon}"] = [np.mean(
-                    np.mean(min_fde_scores[idx]), 3
-                )]         
+                res_per_class[f"{class_name} NLL @{prediction_horizon}"] = [
+                    np.mean(np.mean(neg_log_likelihood_scores[idx]), 3)
+                ]
+                res_per_class[f"{class_name} RMSE @{prediction_horizon}"] = [
+                    np.mean(np.mean(rmse_scores[idx]), 3)
+                ]
+                res_per_class[f"{class_name} minADE @{prediction_horizon}"] = [
+                    np.mean(np.mean(min_ade_scores[idx]), 3)
+                ]
+                res_per_class[f"{class_name} minFDE @{prediction_horizon}"] = [
+                    np.mean(np.mean(min_fde_scores[idx]), 3)
+                ]
 
     res = pd.DataFrame(
         {
             **{
                 f"NLL @{prediction_horizon}": np.round(
                     np.mean(
-                        [res_per_class[f"{class_name} NLL @{prediction_horizon}"] for class_name in class_names]
-                    ), 3
+                        [
+                            res_per_class[f"{class_name} NLL @{prediction_horizon}"]
+                            for class_name in class_names
+                        ]
+                    ),
+                    3,
                 )
                 for prediction_horizon in prediction_horizons[::-1]
             },
             **{
                 f"RMSE @{prediction_horizon}": np.round(
                     np.mean(
-                        [res_per_class[f"{class_name} RMSE @{prediction_horizon}"] for class_name in class_names]
-                    ), 3
+                        [
+                            res_per_class[f"{class_name} RMSE @{prediction_horizon}"]
+                            for class_name in class_names
+                        ]
+                    ),
+                    3,
                 )
                 for prediction_horizon in prediction_horizons[::-1]
             },
             **{
                 f"minADE @{prediction_horizon}": np.round(
                     np.mean(
-                        [res_per_class[f"{class_name} minADE @{prediction_horizon}"] for class_name in class_names]
-                    ), 3
+                        [
+                            res_per_class[f"{class_name} minADE @{prediction_horizon}"]
+                            for class_name in class_names
+                        ]
+                    ),
+                    3,
                 )
                 for prediction_horizon in prediction_horizons[::-1]
             },
             **{
                 f"minFDE @{prediction_horizon}": np.round(
                     np.mean(
-                        [res_per_class[f"{class_name} minFDE @{prediction_horizon}"] for class_name in class_names]
-                    ), 3
+                        [
+                            res_per_class[f"{class_name} minFDE @{prediction_horizon}"]
+                            for class_name in class_names
+                        ]
+                    ),
+                    3,
                 )
                 for prediction_horizon in prediction_horizons[::-1]
             },
