@@ -213,7 +213,7 @@ def run_waymo_eval_per_class(
     """Agent classes: Vehicle, pedestrian, cyclist"""
     model.to("cuda")
 
-    class_names = ["vehicle, pedestrian, cyclist"]
+    class_names = ["vehicle", "pedestrian", "cyclist"]
     vehicle_samples = f"{data}/vehicle*.npz"
     pedestrian_samples = f"{data}/pedestrian*.npz"
     cyclist_samples = f"{data}/cyclist*.npz"
