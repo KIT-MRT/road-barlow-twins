@@ -364,16 +364,16 @@ def run_waymo_eval_per_class(
                     )
             for idx, prediction_horizon in enumerate(prediction_horizons[::-1]):
                 res_per_class[f"{class_name} NLL @{prediction_horizon}"] = [
-                    np.mean(np.mean(neg_log_likelihood_scores[idx]), 3)
+                    np.round(np.mean(neg_log_likelihood_scores[idx]), 3)
                 ]
                 res_per_class[f"{class_name} RMSE @{prediction_horizon}"] = [
-                    np.mean(np.mean(rmse_scores[idx]), 3)
+                    np.round(np.mean(rmse_scores[idx]), 3)
                 ]
                 res_per_class[f"{class_name} minADE @{prediction_horizon}"] = [
-                    np.mean(np.mean(min_ade_scores[idx]), 3)
+                    np.round(np.mean(min_ade_scores[idx]), 3)
                 ]
                 res_per_class[f"{class_name} minFDE @{prediction_horizon}"] = [
-                    np.mean(np.mean(min_fde_scores[idx]), 3)
+                    np.round(np.mean(min_fde_scores[idx]), 3)
                 ]
 
     res = pd.DataFrame(
