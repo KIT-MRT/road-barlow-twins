@@ -209,6 +209,7 @@ def run_waymo_eval_per_class(
     prediction_horizons=[30, 50],
     red_model=False,
     n_samples_per_class=5_000,
+    prediction_subsampling_rate=1,
 ):
     """Agent classes: Vehicle, pedestrian, cyclist"""
     model.to("cuda")
@@ -323,9 +324,9 @@ def run_waymo_eval_per_class(
                 confidences_np = confidences.squeeze(0).cpu().numpy()
 
                 for idx, prediction_horizon in enumerate(prediction_horizons[::-1]):
-                    y_np = y_np[:prediction_horizon]
-                    is_available_np = is_available_np[:prediction_horizon]
-                    logits_np = logits_np[:, :prediction_horizon]
+                    y_np = y_np[(prediction_subsampling_rate - 1):prediction_horizon:prediction_subsampling_rate]
+                    is_available_np = is_available_np[(prediction_subsampling_rate - 1):prediction_horizon:prediction_subsampling_rate]
+                    logits_np = logits_np[:, :(prediction_horizon // prediction_subsampling_rate)]
 
                     neg_log_likelihood_scores[idx].append(
                         neg_multi_log_likelihood(

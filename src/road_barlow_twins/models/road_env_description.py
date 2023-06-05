@@ -213,10 +213,12 @@ class REDMotionPredictor(pl.LightningModule):
         learning_rate,
         auxiliary_rbt_loss=False,
         auxiliary_loss_weight=0.3,
+        prediction_subsampling_rate=1,
     ):
         super().__init__()
         self.num_trajectory_proposals = num_trajectory_proposals
         self.prediction_horizon = prediction_horizon
+        self.prediction_subsampling_rate = prediction_subsampling_rate
         self.lr = learning_rate
 
         self.road_env_encoder = REDEncoder(
@@ -236,9 +238,9 @@ class REDMotionPredictor(pl.LightningModule):
             nn.LayerNorm((dim_road_env_encoder,), eps=1e-06, elementwise_affine=True),
             nn.Linear(
                 in_features=dim_road_env_encoder,
-                out_features=num_trajectory_proposals * 2 * prediction_horizon
+                out_features=num_trajectory_proposals * 2 * (prediction_horizon // prediction_subsampling_rate)
                 + num_trajectory_proposals,
-            ),  # Multiple trajectory proposals with (x, y) every 0.1 sec and confidences
+            ),  # Multiple trajectory proposals with (x, y) every (0.1 sec // subsampling rate) and confidences
         )
         self.auxiliary_rbt_loss = auxiliary_rbt_loss
         self.auxiliary_loss_weight = auxiliary_loss_weight
@@ -270,7 +272,7 @@ class REDMotionPredictor(pl.LightningModule):
             motion_embedding[:, self.num_trajectory_proposals :],
         )
         logits = logits.view(
-            -1, self.num_trajectory_proposals, self.prediction_horizon, 2
+            -1, self.num_trajectory_proposals, (self.prediction_horizon // self.prediction_subsampling_rate), 2
         )
 
         return confidences_logits, logits
@@ -288,8 +290,8 @@ class REDMotionPredictor(pl.LightningModule):
         ]
         ego_pos_src_tokens = batch["past_ego_trajectory"]["pos_src_tokens"]
 
-        y = y[:, : self.prediction_horizon, :]
-        is_available = is_available[:, : self.prediction_horizon]
+        y = y[:, (self.prediction_subsampling_rate - 1):self.prediction_horizon:self.prediction_subsampling_rate, :]
+        is_available = is_available[:, (self.prediction_subsampling_rate - 1):self.prediction_horizon:self.prediction_subsampling_rate]
 
         if self.auxiliary_rbt_loss:
             road_env_tokens_a = self.road_env_encoder(
@@ -326,7 +328,7 @@ class REDMotionPredictor(pl.LightningModule):
                 motion_embedding[:, self.num_trajectory_proposals :],
             )
             logits = logits.view(
-                -1, self.num_trajectory_proposals, self.prediction_horizon, 2
+                -1, self.num_trajectory_proposals, (self.prediction_horizon // self.prediction_subsampling_rate), 2
             )
             motion_loss = pytorch_neg_multi_log_likelihood_batch(
                 y, logits, confidences_logits, is_available
