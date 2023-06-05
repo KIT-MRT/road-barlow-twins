@@ -10,7 +10,7 @@ from pytorch_lightning.loggers import CSVLogger, WandbLogger
 from models.road_env_description import REDMotionPredictor
 from data_utils.dataset_modules import WaymoRoadEnvGraphDataModule
 
-from data_utils.eval_motion_prediction import run_eval_dataframe
+from data_utils.eval_motion_prediction import run_eval_dataframe, run_waymo_eval_per_class
 
 
 def parse_args():
@@ -117,7 +117,7 @@ def main():
             model.state_dict(),
             f"{args.save_dir}/models/{args.run_prefix}-{args.model}-{start_time}.pt",
         )
-        pred_metrics = run_eval_dataframe(
+        pred_metrics, pred_metrics_per_class = run_waymo_eval_per_class(
             model=model,
             data=args.val_path,
             prediction_horizons=[30, 50],
@@ -126,6 +126,10 @@ def main():
         loggers[1].log_table(
             key="motion_prediction_eval",
             dataframe=pred_metrics
+        )
+        loggers[1].log_table(
+            key="motion_prediction_eval_per_class",
+            dataframe=pred_metrics_per_class
         )
 
 
