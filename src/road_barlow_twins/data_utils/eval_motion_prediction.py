@@ -324,12 +324,12 @@ def run_waymo_eval_per_class(
                 confidences_np = confidences.squeeze(0).cpu().numpy()
 
                 for idx, prediction_horizon in enumerate(prediction_horizons[::-1]):
-                    y_np = y_np[
+                    y_np_sub = y_np[
                         (
                             prediction_subsampling_rate - 1
                         ) : prediction_horizon : prediction_subsampling_rate
                     ]
-                    is_available_np = is_available_np[
+                    is_available_np_sub = is_available_np[
                         (
                             prediction_subsampling_rate - 1
                         ) : prediction_horizon : prediction_subsampling_rate
@@ -340,37 +340,37 @@ def run_waymo_eval_per_class(
 
                     neg_log_likelihood_scores[idx].append(
                         neg_multi_log_likelihood(
-                            ground_truth=y_np,
+                            ground_truth=y_np_sub,
                             pred=logits_np,
                             confidences=confidences_np,
-                            avails=is_available_np,
+                            avails=is_available_np_sub,
                         )
                     )
 
                     rmse_scores[idx].append(
                         rmse(
-                            ground_truth=y_np,
+                            ground_truth=y_np_sub,
                             pred=logits_np,
                             confidences=confidences_np,
-                            avails=is_available_np,
+                            avails=is_available_np_sub,
                         )
                     )
 
                     min_ade_scores[idx].append(
                         average_displacement_error_oracle(
-                            ground_truth=y_np,
+                            ground_truth=y_np_sub,
                             pred=logits_np,
                             confidences=confidences_np,
-                            avails=is_available_np,
+                            avails=is_available_np_sub,
                         )
                     )
 
                     min_fde_scores[idx].append(
                         final_displacement_error_oracle(
-                            ground_truth=y_np,
+                            ground_truth=y_np_sub,
                             pred=logits_np,
                             confidences=confidences_np,
-                            avails=is_available_np,
+                            avails=is_available_np_sub,
                         )
                     )
             for idx, prediction_horizon in enumerate(prediction_horizons[::-1]):
