@@ -71,7 +71,7 @@ class REDEncoder(pl.LightningModule):
             dropout=dropout,
         )
         self.projection_head = nn.Sequential(
-            nn.Linear(in_features=dim_model, out_features=4096),
+            nn.Linear(in_features=size_decoder_vocab * 2, out_features=4096), # Mean, var per token
             nn.BatchNorm1d(4096),
             nn.ReLU(),
             nn.Linear(in_features=4096, out_features=z_dim),
@@ -103,19 +103,21 @@ class REDEncoder(pl.LightningModule):
         return self.decoder(tgt, self.encoder(src, src_mask), src_mask)
 
     def shared_step(self, batch):
+        road_env_tokens_a = self.forward(
+            idxs_src_tokens=batch["sample_a"]["idx_src_tokens"],
+            pos_src_tokens=batch["sample_a"]["pos_src_tokens"],
+            src_mask=batch["src_attn_mask"],
+        )
+        road_env_tokens_b = self.forward(
+            idxs_src_tokens=batch["sample_b"]["idx_src_tokens"],
+            pos_src_tokens=batch["sample_b"]["pos_src_tokens"],
+            src_mask=batch["src_attn_mask"],
+        )
         z_a = self.projection_head(
-            self.forward(
-                idxs_src_tokens=batch["sample_a"]["idx_src_tokens"],
-                pos_src_tokens=batch["sample_a"]["pos_src_tokens"],
-                src_mask=batch["src_attn_mask"],
-            ).mean(dim=1),
+            torch.concat((road_env_tokens_a.mean(dim=2), road_env_tokens_a.var(dim=2)), dim=1)
         )
         z_b = self.projection_head(
-            self.forward(
-                idxs_src_tokens=batch["sample_b"]["idx_src_tokens"],
-                pos_src_tokens=batch["sample_b"]["pos_src_tokens"],
-                src_mask=batch["src_attn_mask"],
-            ).mean(dim=1),
+            torch.concat((road_env_tokens_b.mean(dim=2), road_env_tokens_b.var(dim=2)), dim=1)
         )
         return self.loss_fn(z_a, z_b)
 
@@ -318,10 +320,10 @@ class REDMotionPredictor(pl.LightningModule):
                 src_mask=batch["src_attn_mask"],
             )
             env_z_a = self.road_env_encoder.projection_head(
-                road_env_tokens_a.mean(dim=1)
+                torch.concat((road_env_tokens_a.mean(dim=2), road_env_tokens_a.var(dim=2)), dim=1)
             )
             env_z_b = self.road_env_encoder.projection_head(
-                road_env_tokens_b.mean(dim=1)
+                torch.concat((road_env_tokens_b.mean(dim=2), road_env_tokens_b.var(dim=2)), dim=1)
             )
             rbt_loss = self.road_env_encoder.loss_fn(env_z_a, env_z_b)
 
