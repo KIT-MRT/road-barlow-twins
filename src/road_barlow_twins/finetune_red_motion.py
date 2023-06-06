@@ -20,6 +20,7 @@ def parse_args():
     parser.add_argument("--checkpoint-red-encoder", type=str, required=False, default='')
     parser.add_argument("--checkpoint-ego-encoder", type=str, required=False, default='')
     parser.add_argument("--use-auxiliary-rbt-loss", action="store_true")
+    parser.add_argument("--use-auxiliary-tmcl-loss", action="store_true")
     parser.add_argument("--auxiliary-rbt-loss-weight", type=float, required=False, default=0.3)
     parser.add_argument("--prediction-subsampling-rate", type=int, required=False, default=1)
     parser.add_argument("--batch-size", type=int, required=False, default=128)
@@ -77,6 +78,7 @@ def main():
         auxiliary_rbt_loss=args.use_auxiliary_rbt_loss,
         auxiliary_loss_weight=args.auxiliary_rbt_loss_weight,
         prediction_subsampling_rate=args.prediction_subsampling_rate,
+        auxiliary_tmcl_loss=args.use_auxiliary_tmcl_loss,
     )
 
     if args.checkpoint:
