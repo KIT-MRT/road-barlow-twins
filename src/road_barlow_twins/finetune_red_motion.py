@@ -29,7 +29,7 @@ def parse_args():
     parser.add_argument("--train-sample-limit", type=int, required=False, default=0)
     parser.add_argument("--num-nodes", type=int, required=False, default=1)
     parser.add_argument("--num-gpus", type=int, required=False, default=4)
-    parser.add_argument("--time-limit", type=int, required=False, default=80)
+    parser.add_argument("--prediction-horizon", type=int, required=False, default=50)
     parser.add_argument("--run-prefix", type=str, required=False, default="")
     parser.add_argument(
         "--train-path",
@@ -71,7 +71,7 @@ def main():
         dim_road_env_attn_window=16,
         dim_ego_trajectory_encoder=128,
         num_trajectory_proposals=6,
-        prediction_horizon=50,
+        prediction_horizon=args.prediction_horizon,
         batch_size=args.batch_size,
         learning_rate=args.lr,
         auxiliary_rbt_loss=args.use_auxiliary_rbt_loss,
@@ -119,10 +119,16 @@ def main():
             model.state_dict(),
             f"{args.save_dir}/models/{args.run_prefix}-{args.model}-{start_time}.pt",
         )
+
+        if args.prediction_horizon > 50:
+            prediction_horizons = [30, 50, args.prediction_horizon]
+        else:
+            prediction_horizons = [30, 50]
+
         pred_metrics, pred_metrics_per_class = run_waymo_eval_per_class(
             model=model,
             data=args.val_path,
-            prediction_horizons=[30, 50],
+            prediction_horizons=prediction_horizons,
             red_model=True,
             prediction_subsampling_rate=args.prediction_subsampling_rate,
         )
