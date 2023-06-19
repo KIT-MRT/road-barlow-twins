@@ -1,5 +1,5 @@
-# Road Barlow Twins
-Self-supervised pre-training method for HD map assisted motion prediction.
+# Road Barlow Twins: Redundancy Reduction for Road Environment Descriptors and Motion Prediction
+TL;DR: New self-supervised pre-training method and transformer model for motion prediction.
 
 ## Overview
 ![Model architecture](red-motion-model.png "Model architecture")
