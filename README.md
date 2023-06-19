@@ -2,11 +2,9 @@
 Self-supervised pre-training method for HD map assisted motion prediction.
 
 ## Overview
-![Model architecture](assets/road-bralow-twins.png "Model architecture")
+![Model architecture](red-motion-model.png "Model architecture")
 
-Left: Pre-training and fine-tuning objectives. Pre-training: Maximize the similarity of moderately augmented views of HD maps. Fine-tuning: Motion prediction with six trajectory proposals per agent.
-
-Right: Proposed DNN model for motion prediction with seperate encoders for map data and past agent trajectories.
+REDMotion model. Our model consists of two encoders. The ego trajectory encoder generates an embedding for the past trajectory of the ego agent. The road environment encoder generates a set of road environment descriptors as context embedding. Both embeddings are fused via cross-attention to yield trajectory proposals per agent.
 
 ## Getting started  [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1vC5lqRVicGsmx8bkSlxrH4Tm9cTUr4e9?usp=sharing)
 
