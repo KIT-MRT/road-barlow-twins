@@ -22,8 +22,9 @@ def run_eval_dataframe(
     n_samples=20_181,
     prediction_horizons=[30, 50],
     red_model=False,
+    device="cuda",
 ):
-    model.to("cuda")
+    model.to(device)
     model.eval()
 
     slicing_step_size = len(glob(f"{data}/*.npz")) // n_samples
@@ -212,9 +213,10 @@ def run_waymo_eval_per_class(
     red_model=False,
     n_samples_per_class=5_000,
     prediction_subsampling_rate=1,
+    device="cuda",
 ):
     """Agent classes: Vehicle, pedestrian, cyclist"""
-    model.to("cuda")
+    model.to(device)
     model.eval()
 
     class_names = ["vehicle", "pedestrian", "cyclist"]
