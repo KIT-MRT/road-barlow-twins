@@ -234,8 +234,8 @@ class REDMotionPredictor(pl.LightningModule):
             dim_model=dim_ego_trajectory_encoder,
             dim_output=dim_road_env_encoder,
         )
-        # self.fusion_block = REDFusionBlock(dim_model=dim_road_env_encoder, num_layers=6)
-        self.fusion_block = REDFusionBlock(dim_model=dim_road_env_encoder, num_layers=12, dropout=0.2)
+        self.fusion_block = REDFusionBlock(dim_model=dim_road_env_encoder, num_layers=6)
+        # self.fusion_block = REDFusionBlock(dim_model=dim_road_env_encoder, num_layers=12, dropout=0.2)
         self.motion_head = nn.Sequential(
             nn.LayerNorm((dim_road_env_encoder,), eps=1e-06, elementwise_affine=True),
             nn.Linear(
