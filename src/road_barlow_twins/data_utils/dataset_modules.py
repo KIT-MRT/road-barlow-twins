@@ -1,10 +1,146 @@
 import os
+import torch
 import numpy as np
 import pytorch_lightning as pl
+import torch.nn.functional as F
 
+from glob import glob
 from torch.utils.data import DataLoader, Dataset
 
 from .raster_barlow_twins_transform import BarlowTwinsTransform
+from .road_env_graph_utils import (
+    RoadEnvGraphAugmentations,
+    waymo_vectors_to_road_env_graph,
+    waymo_vectors_to_past_ego_trajectory,
+)
+
+
+class WaymoRoadEnvGraphDataModule(pl.LightningDataModule):
+    def __init__(
+        self,
+        batch_size=32,
+        num_dataloader_workers=8,
+        pin_memory=True,
+        train_path="",
+        val_path="",
+        val_limit=200,
+        train_limit=0,
+    ):
+        super().__init__()
+        self.batch_size = batch_size
+        self.num_dataloader_workers = num_dataloader_workers
+        self.pin_memory = pin_memory
+        self.train_path = train_path
+        self.val_path = val_path
+        self.val_limit = val_limit
+        self.train_limit = train_limit
+
+    def prepare_data(self):
+        pass
+
+    def setup(self, stage: str):
+        # Assign train/val datasets for use in dataloaders
+        if stage == "fit":
+            self.train_set = WaymoRoadEnvGraphDataset(
+                self.train_path, limit=self.train_limit
+            )
+            self.val_set = WaymoRoadEnvGraphDataset(self.val_path, limit=self.val_limit)
+
+    def train_dataloader(self):
+        return DataLoader(
+            self.train_set,
+            batch_size=self.batch_size,
+            num_workers=self.num_dataloader_workers,
+            pin_memory=self.pin_memory,
+            persistent_workers=True,
+            drop_last=True,
+        )
+
+    def val_dataloader(self):
+        return DataLoader(
+            self.val_set,
+            batch_size=self.batch_size,
+            num_workers=self.num_dataloader_workers,
+            pin_memory=self.pin_memory,
+            persistent_workers=True,
+            drop_last=True,
+        )
+
+
+class WaymoRoadEnvGraphDataset(Dataset):
+    def __init__(self, directory, glob_path='', limit=0, is_test=False, augment=False, max_len=1200):
+        if glob_path:
+            self.files = glob(glob_path)
+        else:
+            files = os.listdir(directory)
+            self.files = [os.path.join(directory, f) for f in files if f.endswith(".npz")]
+
+        if limit > 0:
+            self.files = self.files[:limit]
+        else:
+            self.files = sorted(self.files)
+
+        self.is_test = is_test
+        self.max_len = max_len
+        self.transform = RoadEnvGraphAugmentations()
+
+    def __len__(self):
+        return len(self.files)
+
+    def __getitem__(self, idx):
+        filename = self.files[idx]
+        data = np.load(filename, allow_pickle=True)
+
+        vectors = data["vector_data"].astype("float32")
+        road_graph = waymo_vectors_to_road_env_graph(
+            vectors, max_dist=50, lane_sampling_rate=3, agent_radius=25
+        )
+        sample_a, sample_b = self.transform(road_graph)
+        sample_len = sample_a.size(dim=0)
+
+        pad_len = 0
+        if sample_len < self.max_len:
+            pad_len = self.max_len - sample_len
+
+        past_ego_trajectory = waymo_vectors_to_past_ego_trajectory(vectors)
+        
+        if len(past_ego_trajectory) != 11:
+            pad_trajectory = 11 - len(past_ego_trajectory)
+            past_ego_trajectory = np.pad(past_ego_trajectory, pad_width=((pad_trajectory, 0), (0, 0)), mode="edge")
+        
+        past_ego_trajectory = torch.tensor(past_ego_trajectory)
+        is_available = torch.tensor(data["future_val_marginal"])
+        future_trajectory = torch.tensor(data["gt_marginal"])
+        
+        return {
+            "sample_a": {
+                "idx_src_tokens": (
+                    F.pad(sample_a[:, 2], pad=(0, pad_len), value=10)
+                ).int(),  # [pad] token at idx 10
+                "pos_src_tokens": (
+                    F.pad(sample_a[:, 0:2], pad=(0, 0, 0, pad_len), value=0)
+                ).float(),
+            },
+            "sample_b": {
+                "idx_src_tokens": (
+                    F.pad(sample_b[:, 2], pad=(0, pad_len), value=10)
+                ).int(),
+                "pos_src_tokens": (
+                    F.pad(sample_b[:, 0:2], pad=(0, 0, 0, pad_len), value=0)
+                ).float(),
+            },
+            "past_ego_trajectory": {
+                "idx_semantic_embedding": past_ego_trajectory[:, 2].int(),
+                "pos_src_tokens": past_ego_trajectory[:, 0:2].float(),
+            },
+            "future_ego_trajectory": {
+                "is_available": is_available,
+                "trajectory": future_trajectory,
+            },
+            "src_attn_mask": (
+                F.pad(torch.ones(sample_len), pad=(0, pad_len), value=0)
+            ).bool(),
+        }
 
 
 class WaymoBarlowRasterLoader(Dataset):

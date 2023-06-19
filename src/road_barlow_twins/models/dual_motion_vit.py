@@ -98,8 +98,7 @@ class DualMotionViT(pl.LightningModule):
     
 
 def pytorch_neg_multi_log_likelihood_batch(gt, logits, confidences, avails):
-    """
-    Compute a negative log-likelihood for the multi-modal scenario.
+    """Compute a negative log-likelihood for the multi-modal scenario.
     Args:
         gt (Tensor): array of shape (bs)x(time)x(2D coords)
         logits (Tensor): array of shape (bs)x(modes)x(time)x(2D coords)
@@ -107,6 +106,8 @@ def pytorch_neg_multi_log_likelihood_batch(gt, logits, confidences, avails):
         avails (Tensor): array of shape (bs)x(time) with the availability for each gt timestep
     Returns:
         Tensor: negative log-likelihood for this example, a single float number
+    Src: 
+        https://github.com/kbrodt/waymo-motion-prediction-2021
     """
 
     # convert to (batch_size, num_modes, future_len, num_coords)
