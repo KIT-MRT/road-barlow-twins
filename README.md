@@ -16,25 +16,5 @@ Open the Colab notebook above for a demo of our REDMotion model. The demo shows 
 Register and download the dataset from [here](https://waymo.com/open).
 Clone [this repo](https://github.com/kbrodt/waymo-motion-prediction-2021) and use the prerender script as described in the readme.
 
-## Pre-training
-```bash
-# cd src/road_barlow_twins
-python pretrain_road_barlow_twins.py \
-    --model vit_base_patch16_224 \
-    --encoder-out-dim 768 \
-    ...
-    --save-dir ...
-```
-
-## Fine-tuning DualMotionViT
-```bash
-# cd src/road_barlow_twins
-python finetune_motion.py \
-    --model vit_base_patch16_224 \
-    --checkpoint PATH_TO_PRE-TRAINING_CHECKPOINT \
-    ...
-    --save-dir ...
-```
-
 ### Acknowledgement
 The code in this repo builds up-on the work by [Konev et al.](https://arxiv.org/abs/2206.02163).
