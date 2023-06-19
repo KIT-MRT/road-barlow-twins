@@ -6,7 +6,6 @@ from local_attention import LocalAttention
 
 from .raster_barlow_twins import BarlowTwinsLoss
 from .dual_motion_vit import pytorch_neg_multi_log_likelihood_batch
-# from ..pretrain_pretram import NT_XentLoss
 
 
 class REDEncoder(pl.LightningModule):
@@ -215,7 +214,6 @@ class REDMotionPredictor(pl.LightningModule):
         batch_size,
         learning_rate,
         auxiliary_rbt_loss=False,
-        auxiliary_tmcl_loss=False,
         auxiliary_loss_weight=0.3,
         prediction_subsampling_rate=1,
     ):
@@ -248,16 +246,6 @@ class REDMotionPredictor(pl.LightningModule):
         )
         self.auxiliary_rbt_loss = auxiliary_rbt_loss
         self.auxiliary_loss_weight = auxiliary_loss_weight
-
-        self.auxiliary_tmcl_loss = auxiliary_tmcl_loss
-        
-        if auxiliary_tmcl_loss:
-            self.tmcl_loss_fn = NT_XentLoss(batch_size=batch_size, temperature=0.07)
-            self.tmcl_projection_head = nn.Sequential(
-                nn.Linear(dim_road_env_encoder, dim_road_env_encoder, bias=False),
-                nn.ReLU(),
-                nn.Linear(dim_road_env_encoder, 2048, bias=False),
-            )
 
     def forward(
         self,
@@ -364,47 +352,6 @@ class REDMotionPredictor(pl.LightningModule):
             )
 
             loss = motion_loss + self.auxiliary_loss_weight * rbt_loss
-        elif self.auxiliary_tmcl_loss:
-            road_env_tokens_a = self.road_env_encoder(
-                idxs_src_tokens=batch["sample_a"]["idx_src_tokens"],
-                pos_src_tokens=batch["sample_a"]["pos_src_tokens"],
-                src_mask=batch["src_attn_mask"],
-            )
-            env_z_a = self.tmcl_projection_head(
-                road_env_tokens_a.mean(dim=1) # Mean of tokens - global avg pooling
-            )
-            ego_trajectory_tokens = self.ego_trajectory_encoder(
-                ego_idxs_semantic_embedding, ego_pos_src_tokens
-            )
-            ego_z = self.tmcl_projection_head(
-                ego_trajectory_tokens.mean(dim=1) # Mean of tokens - global avg pooling
-            )
-            tmcl_loss = self.tmcl_loss_fn(env_z_a, ego_z)
-
-            ego_trajectory_tokens = self.ego_trajectory_encoder(
-                ego_idxs_semantic_embedding, ego_pos_src_tokens
-            )
-            fused_tokens = self.fusion_block(
-                q=ego_trajectory_tokens,
-                k=road_env_tokens_a,
-                v=road_env_tokens_a,
-            )
-            motion_embedding = self.motion_head(fused_tokens.mean(dim=1))
-            confidences_logits, logits = (
-                motion_embedding[:, : self.num_trajectory_proposals],
-                motion_embedding[:, self.num_trajectory_proposals :],
-            )
-            logits = logits.view(
-                -1,
-                self.num_trajectory_proposals,
-                (self.prediction_horizon // self.prediction_subsampling_rate),
-                2,
-            )
-            motion_loss = pytorch_neg_multi_log_likelihood_batch(
-                y, logits, confidences_logits, is_available
-            )
-
-            loss = motion_loss + self.auxiliary_loss_weight * tmcl_loss
         else:
             confidences_logits, logits = self.forward(
                 env_idxs_src_tokens,
@@ -703,50 +650,3 @@ def feed_forward(dim_input: int = 512, dim_feedforward: int = 2048) -> nn.Module
         nn.ReLU(),
         nn.Linear(dim_feedforward, dim_input),
     )
-
-
-class NT_XentLoss(nn.Module):
-    """Based on: https://github.com/Spijkervet/SimCLR"""
-
-    def __init__(self, batch_size, temperature):
-        super().__init__()
-        self.batch_size = batch_size
-        self.temperature = temperature
-
-        self.mask = self.mask_correlated_samples(batch_size)
-        self.criterion = nn.CrossEntropyLoss(reduction="sum")
-        self.similarity_f = nn.CosineSimilarity(dim=2)
-
-    def mask_correlated_samples(self, batch_size):
-        N = 2 * batch_size
-        mask = torch.ones((N, N), dtype=bool)
-        mask = mask.fill_diagonal_(0)
-        for i in range(batch_size):
-            mask[i, batch_size + i] = 0
-            mask[batch_size + i, i] = 0
-        return mask
-
-    def forward(self, z_i, z_j):
-        """
-        We do not sample negative examples explicitly.
-        Instead, given a positive pair, similar to (Chen et al., 2017), we treat the other 2(N − 1) augmented examples within a minibatch as negative examples.
-        """
-        N = 2 * self.batch_size
-
-        z = torch.cat((z_i, z_j), dim=0)
-
-        sim = self.similarity_f(z.unsqueeze(1), z.unsqueeze(0)) / self.temperature
-
-        sim_i_j = torch.diag(sim, self.batch_size)
-        sim_j_i = torch.diag(sim, -self.batch_size)
-
-        # We have 2N samples, but with Distributed training every GPU gets N examples too, resulting in: 2xNxN
-        positive_samples = torch.cat((sim_i_j, sim_j_i), dim=0).reshape(N, 1)
-        negative_samples = sim[self.mask].reshape(N, -1)
-
-        labels = torch.zeros(N).to(positive_samples.device).long()
-        logits = torch.cat((positive_samples, negative_samples), dim=1)
-        loss = self.criterion(logits, labels)
-        loss /= N
-
-        return loss
