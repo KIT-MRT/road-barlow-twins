@@ -98,8 +98,7 @@ class DualMotionViT(pl.LightningModule):
     
 
 def pytorch_neg_multi_log_likelihood_batch(gt, logits, confidences, avails):
-    """
-    Compute a negative log-likelihood for the multi-modal scenario.
+    """Compute a negative log-likelihood for the multi-modal scenario.
     Args:
         gt (Tensor): array of shape (bs)x(time)x(2D coords)
         logits (Tensor): array of shape (bs)x(modes)x(time)x(2D coords)
