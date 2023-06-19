@@ -24,6 +24,8 @@ def run_eval_dataframe(
     red_model=False,
 ):
     model.to("cuda")
+    model.eval()
+
     slicing_step_size = len(glob(f"{data}/*.npz")) // n_samples
 
     if red_model:
@@ -213,6 +215,7 @@ def run_waymo_eval_per_class(
 ):
     """Agent classes: Vehicle, pedestrian, cyclist"""
     model.to("cuda")
+    model.eval()
 
     class_names = ["vehicle", "pedestrian", "cyclist"]
     vehicle_samples = f"{data}/vehicle*.npz"
