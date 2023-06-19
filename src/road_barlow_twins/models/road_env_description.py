@@ -216,6 +216,7 @@ class REDMotionPredictor(pl.LightningModule):
         auxiliary_rbt_loss=False,
         auxiliary_loss_weight=0.3,
         prediction_subsampling_rate=1,
+        num_fusion_layers=6,
     ):
         super().__init__()
         self.num_trajectory_proposals = num_trajectory_proposals
@@ -232,8 +233,7 @@ class REDMotionPredictor(pl.LightningModule):
             dim_model=dim_ego_trajectory_encoder,
             dim_output=dim_road_env_encoder,
         )
-        self.fusion_block = REDFusionBlock(dim_model=dim_road_env_encoder, num_layers=6)
-        # self.fusion_block = REDFusionBlock(dim_model=dim_road_env_encoder, num_layers=12, dropout=0.2)
+        self.fusion_block = REDFusionBlock(dim_model=dim_road_env_encoder, num_layers=num_fusion_layers) # Opt. test w/ more
         self.motion_head = nn.Sequential(
             nn.LayerNorm((dim_road_env_encoder,), eps=1e-06, elementwise_affine=True),
             nn.Linear(
