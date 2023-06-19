@@ -66,17 +66,17 @@ def run_eval_dataframe(
         for batch in tqdm(loader):
             # x, y, is_available = map(lambda x: x.cuda(), (x, y, is_available))
             if red_model:
-                is_available = batch["future_ego_trajectory"]["is_available"].to("cuda")
-                y = batch["future_ego_trajectory"]["trajectory"].to("cuda")
+                is_available = batch["future_ego_trajectory"]["is_available"].to(device)
+                y = batch["future_ego_trajectory"]["trajectory"].to(device)
 
-                env_idxs_src_tokens = batch["sample_a"]["idx_src_tokens"].to("cuda")
-                env_pos_src_tokens = batch["sample_a"]["pos_src_tokens"].to("cuda")
-                env_src_mask = batch["src_attn_mask"].to("cuda")
+                env_idxs_src_tokens = batch["sample_a"]["idx_src_tokens"].to(device)
+                env_pos_src_tokens = batch["sample_a"]["pos_src_tokens"].to(device)
+                env_src_mask = batch["src_attn_mask"].to(device)
                 ego_idxs_semantic_embedding = batch["past_ego_trajectory"][
                     "idx_semantic_embedding"
-                ].to("cuda")
+                ].to(device)
                 ego_pos_src_tokens = batch["past_ego_trajectory"]["pos_src_tokens"].to(
-                    "cuda"
+                    device
                 )
 
                 confidences_logits, logits = model(
@@ -88,7 +88,7 @@ def run_eval_dataframe(
                 )
             else:
                 x, y, is_available, _ = batch
-                x, y, is_available = map(lambda x: x.cuda(), (x, y, is_available))
+                x, y, is_available = map(lambda x: x.to(device), (x, y, is_available))
                 confidences_logits, logits = model(x)
 
             argmax = confidences_logits.argmax()
@@ -290,19 +290,19 @@ def run_waymo_eval_per_class(
             for batch in tqdm(loader):
                 if red_model:
                     is_available = batch["future_ego_trajectory"]["is_available"].to(
-                        "cuda"
+                        device
                     )
-                    y = batch["future_ego_trajectory"]["trajectory"].to("cuda")
+                    y = batch["future_ego_trajectory"]["trajectory"].to(device)
 
-                    env_idxs_src_tokens = batch["sample_a"]["idx_src_tokens"].to("cuda")
-                    env_pos_src_tokens = batch["sample_a"]["pos_src_tokens"].to("cuda")
-                    env_src_mask = batch["src_attn_mask"].to("cuda")
+                    env_idxs_src_tokens = batch["sample_a"]["idx_src_tokens"].to(device)
+                    env_pos_src_tokens = batch["sample_a"]["pos_src_tokens"].to(device)
+                    env_src_mask = batch["src_attn_mask"].to(device)
                     ego_idxs_semantic_embedding = batch["past_ego_trajectory"][
                         "idx_semantic_embedding"
-                    ].to("cuda")
+                    ].to(device)
                     ego_pos_src_tokens = batch["past_ego_trajectory"][
                         "pos_src_tokens"
-                    ].to("cuda")
+                    ].to(device)
 
                     confidences_logits, logits = model(
                         env_idxs_src_tokens,
@@ -313,7 +313,7 @@ def run_waymo_eval_per_class(
                     )
                 else:
                     x, y, is_available, _ = batch
-                    x, y, is_available = map(lambda x: x.cuda(), (x, y, is_available))
+                    x, y, is_available = map(lambda x: x.to(device), (x, y, is_available))
                     confidences_logits, logits = model(x)
 
                 argmax = confidences_logits.argmax()
