@@ -16,4 +16,4 @@ Clone [this repo](https://github.com/kbrodt/waymo-motion-prediction-2021) and us
 
 ### Acknowledgements
 The local attention ([Beltagy et al., 2020](https://arxiv.org/abs/2004.05150)) and cross-attention ([Chen et al., 2021](https://arxiv.org/abs/2103.14899)) implementations are from lucidrain's [vit_pytorch](https://github.com/lucidrains/vit-pytorch) library.
-The baseleine DualMotionViT model builds up-on the work by [Konev et al., 2022](https://arxiv.org/abs/2206.02163).
+The baseline DualMotionViT model builds upon the work by [Konev et al., 2022](https://arxiv.org/abs/2206.02163).
