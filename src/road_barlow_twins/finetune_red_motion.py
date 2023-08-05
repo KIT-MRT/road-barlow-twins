@@ -30,6 +30,7 @@ def parse_args():
     parser.add_argument("--num-nodes", type=int, required=False, default=1)
     parser.add_argument("--num-gpus", type=int, required=False, default=4)
     parser.add_argument("--prediction-horizon", type=int, required=False, default=50)
+    parser.add_argument("--num-trajectory-proposals", type=int, required=False, default=6)
     parser.add_argument("--run-prefix", type=str, required=False, default="")
     parser.add_argument(
         "--train-path",
@@ -70,7 +71,7 @@ def main():
         dim_road_env_encoder=256,
         dim_road_env_attn_window=16,
         dim_ego_trajectory_encoder=128,
-        num_trajectory_proposals=6,
+        num_trajectory_proposals=args.num_trajectory_proposals,
         prediction_horizon=args.prediction_horizon,
         batch_size=args.batch_size,
         learning_rate=args.lr,
