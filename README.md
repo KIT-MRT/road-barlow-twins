@@ -1,4 +1,4 @@
-# Road Barlow Twins: Redundancy Reduction for Road Environment Descriptors and Motion Prediction
+# Road Barlow Twins: Redundancy Reduction for Road Environment Descriptors and Motion Prediction [![arXiv](https://img.shields.io/badge/arXiv-2306.10840-b31b1b.svg)](https://arxiv.org/abs/2306.10840)
 TL;DR: New self-supervised learning method and transformer model for motion prediction in self-driving applications.
 
 ## Overview
