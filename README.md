@@ -1,5 +1,5 @@
 # Road Barlow Twins: Redundancy Reduction for Road Environment Descriptors and Motion Prediction
-TL;DR: New self-supervised pre-training method and transformer model for motion prediction in self-driving applications.
+TL;DR: New self-supervised learning method and transformer model for motion prediction in self-driving applications.
 
 ## Overview
 ![Model architecture](red-motion-model.png "Model architecture")
