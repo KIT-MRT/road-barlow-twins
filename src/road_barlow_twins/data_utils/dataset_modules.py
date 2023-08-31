@@ -112,35 +112,58 @@ class WaymoRoadEnvGraphDataset(Dataset):
         is_available = torch.tensor(data["future_val_marginal"])
         future_trajectory = torch.tensor(data["gt_marginal"])
         
-        return {
-            "sample_a": {
-                "idx_src_tokens": (
-                    F.pad(sample_a[:, 2], pad=(0, pad_len), value=10)
-                ).int(),  # [pad] token at idx 10
-                "pos_src_tokens": (
-                    F.pad(sample_a[:, 0:2], pad=(0, 0, 0, pad_len), value=0)
-                ).float(),
-            },
-            "sample_b": {
-                "idx_src_tokens": (
-                    F.pad(sample_b[:, 2], pad=(0, pad_len), value=10)
-                ).int(),
-                "pos_src_tokens": (
-                    F.pad(sample_b[:, 0:2], pad=(0, 0, 0, pad_len), value=0)
-                ).float(),
-            },
-            "past_ego_trajectory": {
-                "idx_semantic_embedding": past_ego_trajectory[:, 2].int(),
-                "pos_src_tokens": past_ego_trajectory[:, 0:2].float(),
-            },
-            "future_ego_trajectory": {
-                "is_available": is_available,
-                "trajectory": future_trajectory,
-            },
-            "src_attn_mask": (
-                F.pad(torch.ones(sample_len), pad=(0, pad_len), value=0)
-            ).bool(),
-        }
+        if self.is_test:
+            return {
+                "sample_a": {
+                    "idx_src_tokens": (
+                        F.pad(sample_a[:, 2], pad=(0, pad_len), value=10)
+                    ).int(),  # [pad] token at idx 10
+                    "pos_src_tokens": (
+                        F.pad(sample_a[:, 0:2], pad=(0, 0, 0, pad_len), value=0)
+                    ).float(),
+                },
+                "past_ego_trajectory": {
+                    "idx_semantic_embedding": past_ego_trajectory[:, 2].int(),
+                    "pos_src_tokens": past_ego_trajectory[:, 0:2].float(),
+                },
+                "src_attn_mask": (
+                    F.pad(torch.ones(sample_len), pad=(0, pad_len), value=0)
+                ).bool(),
+                "center": data["shift"],
+                "yaw": data["yaw"],
+                "agent_id": data["object_id"],
+                "scenario_id": str(data["scenario_id"]),
+            }
+        else:
+            return {
+                "sample_a": {
+                    "idx_src_tokens": (
+                        F.pad(sample_a[:, 2], pad=(0, pad_len), value=10)
+                    ).int(),  # [pad] token at idx 10
+                    "pos_src_tokens": (
+                        F.pad(sample_a[:, 0:2], pad=(0, 0, 0, pad_len), value=0)
+                    ).float(),
+                },
+                "sample_b": {
+                    "idx_src_tokens": (
+                        F.pad(sample_b[:, 2], pad=(0, pad_len), value=10)
+                    ).int(),
+                    "pos_src_tokens": (
+                        F.pad(sample_b[:, 0:2], pad=(0, 0, 0, pad_len), value=0)
+                    ).float(),
+                },
+                "past_ego_trajectory": {
+                    "idx_semantic_embedding": past_ego_trajectory[:, 2].int(),
+                    "pos_src_tokens": past_ego_trajectory[:, 0:2].float(),
+                },
+                "future_ego_trajectory": {
+                    "is_available": is_available,
+                    "trajectory": future_trajectory,
+                },
+                "src_attn_mask": (
+                    F.pad(torch.ones(sample_len), pad=(0, pad_len), value=0)
+                ).bool(),
+            }
 
 
 class WaymoBarlowRasterLoader(Dataset):
